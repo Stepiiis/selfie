@@ -15,7 +15,7 @@ C\* Symbols: `integer`, `character`, `string`, `identifier`, `,`, `;`, `(`, `)`,
 with:
 
 ```
-integer    = digit { digit } .
+integer    = "0" | non_zero_digit { digit } .
 
 character  = "'" printable_character "'" .
 
@@ -27,7 +27,9 @@ identifier = letter { letter | digit | "_" } .
 and:
 
 ```
-digit  = "0" | ... | "9" .
+non_zero_digit = "1" | ... | "9" .
+
+digit  = "0" | non_zero_digit .
 
 letter = "a" | ... | "z" | "A" | ... | "Z" .
 ```
@@ -60,7 +62,7 @@ term       = factor { ( "*" | "/" | "%" ) factor } .
 factor     = [ cast ] [ "-" ] [ "*" ]
              ( "sizeof" "(" type ")" | literal | identifier | call | "(" expression ")" ) .
 
-literal    = value | string .
+literal    = value | string | "0x" integer.
 
 if         = "if" "(" expression ")"
                ( statement | "{" { statement } "}" )

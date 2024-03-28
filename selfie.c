@@ -141,6 +141,7 @@ char* store_character(char* s, uint64_t i, char c);
 
 uint64_t is_letter(char c);
 uint64_t is_digit(char c);
+uint64_t is_hex_digit(char c);
 
 char*    string_alloc(uint64_t l);
 uint64_t string_length(char* s);
@@ -148,7 +149,7 @@ char*    string_copy(char* s);
 void     string_reverse(char* s);
 uint64_t string_compare(char* s, char* t);
 
-uint64_t atoi(char* s);
+uint64_t atoi(char *s);
 char*    itoa(uint64_t n, char* s, uint64_t b, uint64_t d, uint64_t a);
 
 uint64_t fixed_point_ratio(uint64_t a, uint64_t b, uint64_t f);
@@ -391,7 +392,6 @@ uint64_t identifier_string_match(uint64_t string_index);
 uint64_t identifier_or_keyword();
 
 void get_symbol();
-
 void handle_escape_sequence();
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
@@ -2802,6 +2802,20 @@ uint64_t is_digit(char c) {
     return 0;
 }
 
+uint64_t is_hex_digit(char c){
+  // ASCII value of hex digit can either be a digit 
+  // or a letter in a certain contiguous interval
+  if (is_digit(c))
+    return 1;
+  if (c>='A')
+    if (c<='F')
+      return 1;
+    else
+      return 0;
+  else
+  return 0;
+}
+
 char* string_alloc(uint64_t l) {
   // allocates zeroed memory for a string of l characters
   // plus a null terminator aligned to word size
@@ -2875,11 +2889,45 @@ uint64_t string_compare(char* s, char* t) {
       return 0;
 }
 
-uint64_t atoi(char* s) {
+uint64_t getValue(char *s, uint64_t c, uint64_t base) {
+  if(base <=10 ) {
+    // the numerical value of ASCII-encoded decimal digits
+    // is offset by the ASCII code of '0' (which is 48)
+    c = c - '0';
+
+    if (c > 9) {
+      printf("%s: cannot convert non-decimal number %s\n", selfie_name, s);
+
+      exit(EXITCODE_SCANNERERROR);
+    }
+    return c;
+  } else {
+    if((c - '0') > 9){
+      if((c - 'A') > 25){
+        printf("%s: cannot convert non-decimal number %s\n", selfie_name, s);
+
+        exit(EXITCODE_SCANNERERROR);
+      }
+      return 10 + c - 'A';
+    }else{
+      return c - '0';
+    }
+  }
+
+}
+
+uint64_t atoi_base(char *s, uint64_t base) {
+// converts ASCII string in base b into its numerical value
   uint64_t i;
   uint64_t n;
   uint64_t c;
   uint64_t sign;
+
+  if(base > 36){
+    printf("%s: cannot convert non-decimal number %s of base %lu\n", selfie_name, s, base);
+
+    exit(EXITCODE_SCANNERERROR);
+  }
 
   // the conversion of the ASCII string in s to its
   // numerical value n begins with the leftmost digit in s
@@ -2904,32 +2952,24 @@ uint64_t atoi(char* s) {
 
   // loop until s is terminated
   while (c != 0) {
-    // the numerical value of ASCII-encoded decimal digits
-    // is offset by the ASCII code of '0' (which is 48)
-    c = c - '0';
+    c = getValue(s, c, base);
 
-    if (c > 9) {
-      printf("%s: cannot convert non-decimal number %s\n", selfie_name, s);
+    // assert: s contains a valid number in specified base
 
-      exit(EXITCODE_SCANNERERROR);
-    }
-
-    // assert: s contains a decimal number
-
-    // use base 10 but detect wrap around
-    if (n < UINT64_MAX / 10)
-      n = n * 10 + c;
-    else if (n == UINT64_MAX / 10)
-      if (c <= UINT64_MAX % 10)
-        n = n * 10 + c;
+    // detect wrap around
+    if (n < UINT64_MAX / base)
+      n = n * base + c;
+    else if (n == UINT64_MAX / base)
+      if (c <= UINT64_MAX % base)
+        n = n * base + c;
       else {
-        // s contains a decimal number larger than UINT64_MAX
+        // s contains a number larger than UINT64_MAX
         printf("%s: cannot convert out-of-bound number %s\n", selfie_name, s);
 
         exit(EXITCODE_SCANNERERROR);
       }
     else {
-      // s contains a decimal number larger than UINT64_MAX
+      // s contains a number larger than UINT64_MAX
       printf("%s: cannot convert out-of-bound number %s\n", selfie_name, s);
 
       exit(EXITCODE_SCANNERERROR);
@@ -2954,6 +2994,14 @@ uint64_t atoi(char* s) {
     }
   else
     return n;
+}
+
+uint64_t atoi_hex(char *s){
+    return atoi_base(s, 16);
+}
+
+uint64_t atoi(char *s){
+    return atoi_base(s, 10);
 }
 
 char* itoa(uint64_t n, char* s, uint64_t b, uint64_t d, uint64_t a) {
@@ -3717,6 +3765,59 @@ uint64_t identifier_or_keyword() {
     return SYM_IDENTIFIER;
 }
 
+uint64_t get_int_literal_impl(uint64_t base_ten) {
+    // stores all characters into 'integer' variable until terminating condition doesnt hold true
+    uint64_t i;
+    uint64_t should_terminate;
+    i = 0;
+    // accommodate integer and null for termination
+    integer = string_alloc(MAX_INTEGER_LENGTH);
+
+
+    if(base_ten){
+      should_terminate = is_digit(character);
+    }else{
+      should_terminate = is_hex_digit(character);
+    }
+
+    while (should_terminate) {
+      if (i >= MAX_INTEGER_LENGTH) {
+        if (integer_is_signed)
+          syntax_error_message("signed integer out of bound");
+        else
+          syntax_error_message("unsigned integer out of bound");
+
+        exit(EXITCODE_SCANNERERROR);
+      }
+
+      store_character(integer, i, character);
+
+      i = i + 1;
+
+      get_character();
+      
+      if(base_ten){
+        should_terminate = is_digit(character);
+      }else{
+        should_terminate = is_hex_digit(character);
+      }
+    }
+
+    store_character(integer, i, 0); // null-terminated string
+    
+    return i;
+}
+
+
+uint64_t get_hex_int_literal(){
+    return get_int_literal_impl(0);
+}
+
+uint64_t get_int_literal(){
+    return get_int_literal_impl(1);
+}
+
+
 void get_symbol() {
   uint64_t i;
 
@@ -3762,33 +3863,19 @@ void get_symbol() {
           // 0 is 0, not 00, 000, etc.
           get_character();
 
-          literal = 0;
-        } else {
-          // accommodate integer and null for termination
-          integer = string_alloc(MAX_INTEGER_LENGTH);
+          if (character == 'x'){
+              get_character();
+              i = get_hex_int_literal();
 
-          i = 0;
-
-          while (is_digit(character)) {
-            if (i >= MAX_INTEGER_LENGTH) {
-              if (integer_is_signed)
-                syntax_error_message("signed integer out of bound");
-              else
-                syntax_error_message("unsigned integer out of bound");
-
-              exit(EXITCODE_SCANNERERROR);
+              literal = atoi_hex(integer);
+            } else {
+              literal = 0;
             }
+          
+        } else {
+            get_int_literal();
 
-            store_character(integer, i, character);
-
-            i = i + 1;
-
-            get_character();
-          }
-
-          store_character(integer, i, 0); // null-terminated string
-
-          literal = atoi(integer);
+            literal = atoi(integer);
 
           if (integer_is_signed) {
             if (literal > INT_MIN) {
