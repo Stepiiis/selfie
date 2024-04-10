@@ -1105,7 +1105,7 @@ uint64_t decode_elf_program_header(uint64_t* header);
 uint64_t open_write_only(char* name, uint64_t mode);
 
 void selfie_output(char* filename);
-void selfie_load();
+void selfie_load(char* filename);
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
@@ -7548,7 +7548,7 @@ void selfie_output(char* filename) {
     binary_name);
 }
 
-void selfie_load() {
+void selfie_load(char* filename) {
   uint64_t fd;
   uint64_t* ELF_file_header;
   uint64_t number_of_read_bytes;
@@ -7561,7 +7561,7 @@ void selfie_load() {
   uint64_t number_of_read_bytes_in_total;
   uint64_t to_be_read_bytes;
 
-  binary_name = get_argument();
+  binary_name = filename;
 
   // assert: binary_name is mapped and not longer than MAX_FILENAME_LENGTH
 
@@ -9047,10 +9047,10 @@ void do_divu() {
     write_register(rd);
 
     pc = pc + INSTRUCTIONSIZE;
-
-    ic_divu = ic_divu + 1;
   } else
     throw_exception(EXCEPTION_DIVISIONBYZERO, pc);
+
+  ic_divu = ic_divu + 1;
 }
 
 void do_remu() {
@@ -9076,10 +9076,10 @@ void do_remu() {
     write_register(rd);
 
     pc = pc + INSTRUCTIONSIZE;
-
-    ic_remu = ic_remu + 1;
   } else
     throw_exception(EXCEPTION_DIVISIONBYZERO, pc);
+
+  ic_remu = ic_remu + 1;
 }
 
 void do_sltu() {
@@ -12269,7 +12269,7 @@ uint64_t selfie(uint64_t extras) {
       else if (string_compare(argument, "-S"))
         selfie_disassemble(1);
       else if (string_compare(argument, "-l"))
-        selfie_load();
+        selfie_load(get_argument());
       else if (extras == 0) {
         if (string_compare(argument, "-m"))
           return selfie_run(MIPSTER);

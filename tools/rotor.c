@@ -20,7 +20,7 @@ using BTOR2 as intermediate modeling format.
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
 
 uint64_t* allocate_line() {
-  return smalloc(5 * sizeof(uint64_t*) + 2 * sizeof(char*) + 4 * sizeof(uint64_t));
+  return smalloc(6 * sizeof(uint64_t*) + 2 * sizeof(char*) + 4 * sizeof(uint64_t));
 }
 
 uint64_t  get_nid(uint64_t* line)     { return *line; }
@@ -34,6 +34,7 @@ uint64_t  get_state(uint64_t* line)   { return *(line + 7); }
 uint64_t  get_step(uint64_t* line)    { return *(line + 8); }
 uint64_t  get_reuse(uint64_t* line)   { return *(line + 9); }
 uint64_t* get_pred(uint64_t* line)    { return (uint64_t*) *(line + 10); }
+uint64_t* get_succ(uint64_t* line)    { return (uint64_t*) *(line + 11); }
 
 void set_nid(uint64_t* line, uint64_t nid)      { *line        = nid; }
 void set_op(uint64_t* line, char* op)           { *(line + 1)  = (uint64_t) op; }
@@ -46,6 +47,7 @@ void set_state(uint64_t* line, uint64_t state)  { *(line + 7)  = state; }
 void set_step(uint64_t* line, uint64_t step)    { *(line + 8)  = step; }
 void set_reuse(uint64_t* line, uint64_t reuse)  { *(line + 9)  = reuse; }
 void set_pred(uint64_t* line, uint64_t* pred)   { *(line + 10) = (uint64_t) pred; }
+void set_succ(uint64_t* line, uint64_t* succ)   { *(line + 11) = (uint64_t) succ; }
 
 uint64_t  are_lines_equal(uint64_t* left_line, uint64_t* right_line);
 uint64_t* find_equal_line(uint64_t* line);
@@ -66,6 +68,9 @@ uint64_t* new_unary_boolean(char* op, uint64_t* value_nid, char* comment);
 uint64_t* new_binary(char* op, uint64_t* sid, uint64_t* left_nid, uint64_t* right_nid, char* comment);
 uint64_t* new_binary_boolean(char* op, uint64_t* left_nid, uint64_t* right_nid, char* comment);
 uint64_t* new_ternary(char* op, uint64_t* sid, uint64_t* first_nid, uint64_t* second_nid, uint64_t* third_nid, char* comment);
+
+uint64_t* new_init(uint64_t* sid, uint64_t* state_nid, uint64_t* value_nid, char* comment);
+uint64_t* new_next(uint64_t* sid, uint64_t* state_nid, uint64_t* value_nid, char* comment);
 
 uint64_t* new_property(char* op, uint64_t* condition_nid, char* symbol, char* comment);
 
@@ -97,16 +102,17 @@ char* OP_INC = (char*) 0;
 char* OP_DEC = (char*) 0;
 char* OP_NEG = (char*) 0;
 
-char* OP_EQ   = (char*) 0;
-char* OP_NEQ  = (char*) 0;
-char* OP_SGT  = (char*) 0;
-char* OP_UGT  = (char*) 0;
-char* OP_SGTE = (char*) 0;
-char* OP_UGTE = (char*) 0;
-char* OP_SLT  = (char*) 0;
-char* OP_ULT  = (char*) 0;
-char* OP_SLTE = (char*) 0;
-char* OP_ULTE = (char*) 0;
+char* OP_IMPLIES = (char*) 0;
+char* OP_EQ      = (char*) 0;
+char* OP_NEQ     = (char*) 0;
+char* OP_SGT     = (char*) 0;
+char* OP_UGT     = (char*) 0;
+char* OP_SGTE    = (char*) 0;
+char* OP_UGTE    = (char*) 0;
+char* OP_SLT     = (char*) 0;
+char* OP_ULT     = (char*) 0;
+char* OP_SLTE    = (char*) 0;
+char* OP_ULTE    = (char*) 0;
 
 char* OP_AND = (char*) 0;
 char* OP_OR  = (char*) 0;
@@ -168,16 +174,17 @@ void init_model() {
   OP_DEC = "dec";
   OP_NEG = "neg";
 
-  OP_EQ   = "eq";
-  OP_NEQ  = "neq";
-  OP_SGT  = "sgt";
-  OP_UGT  = "ugt";
-  OP_SGTE = "sgte";
-  OP_UGTE = "ugte";
-  OP_SLT  = "slt";
-  OP_ULT  = "ult";
-  OP_SLTE = "slte";
-  OP_ULTE = "ulte";
+  OP_IMPLIES = "implies";
+  OP_EQ      = "eq";
+  OP_NEQ     = "neq";
+  OP_SGT     = "sgt";
+  OP_UGT     = "ugt";
+  OP_SGTE    = "sgte";
+  OP_UGTE    = "ugte";
+  OP_SLT     = "slt";
+  OP_ULT     = "ult";
+  OP_SLTE    = "slte";
+  OP_ULTE    = "ulte";
 
   OP_AND = "and";
   OP_OR  = "or";
@@ -209,6 +216,13 @@ void init_model() {
 // ---------------------------- SYNTAX -----------------------------
 // -----------------------------------------------------------------
 
+uint64_t is_bitvector(uint64_t* line);
+uint64_t is_array(uint64_t* line);
+
+uint64_t is_constant_op(char* op);
+uint64_t is_input_op(char* op);
+uint64_t is_unary_op(char* op);
+
 void print_nid(uint64_t nid, uint64_t* line);
 
 uint64_t print_sort(uint64_t nid, uint64_t* line);
@@ -226,18 +240,18 @@ uint64_t print_constraint(uint64_t nid, uint64_t* line);
 
 void print_comment(uint64_t* line);
 
-uint64_t is_constant_op(char* op);
-uint64_t is_input_op(char* op);
-uint64_t is_unary_op(char* op);
-
 uint64_t print_referenced_line(uint64_t nid, uint64_t* line);
 
 void print_line(uint64_t* line);
+void print_line_for(uint64_t core, uint64_t* lines);
 
 void print_break();
 void print_break_line(uint64_t* line);
+void print_break_line_for(uint64_t core, uint64_t* lines);
 void print_break_comment(char* comment);
+void print_break_comment_for(uint64_t core, char* comment);
 void print_break_comment_line(char* comment, uint64_t* line);
+void print_break_comment_line_for(uint64_t core, char* comment, uint64_t* line);
 
 void print_aligned_break_comment(char* comment, uint64_t alignment);
 
@@ -259,17 +273,53 @@ uint64_t current_nid = 1; // first nid is 1
 
 uint64_t eval_bitvec_size(uint64_t* line);
 
-void fit_bitvec_sort(uint64_t value, uint64_t* sid);
-void signed_fit_bitvec_sort(uint64_t value, uint64_t* sid);
+void fit_bitvec_sort(uint64_t* sid, uint64_t value);
+void signed_fit_bitvec_sort(uint64_t* sid, uint64_t value);
 
 uint64_t eval_array_size(uint64_t* line);
-uint64_t eval_array_element_size(uint64_t* line);
+uint64_t eval_element_size(uint64_t* line);
 
-void fit_array_sort(uint64_t index, uint64_t value, uint64_t* sid);
+void fit_array_sorts(uint64_t* array_sid, uint64_t index, uint64_t value);
 
 void match_sorts(uint64_t* sid1, uint64_t* sid2, char* comment);
+void match_array_sorts(uint64_t* array_sid, uint64_t* index_sid, uint64_t* value_sid);
 
-void write_value(uint64_t index, uint64_t value, uint64_t* array_nid);
+uint64_t calculate_address_space(uint64_t number_of_bytes, uint64_t word_size);
+
+uint64_t* allocate_array(uint64_t* sid);
+
+uint64_t* get_data_array(uint64_t* arrays)  { return (uint64_t*) *(arrays + 0); }
+uint64_t* get_heap_array(uint64_t* arrays)  { return (uint64_t*) *(arrays + 1); }
+uint64_t* get_stack_array(uint64_t* arrays) { return (uint64_t*) *(arrays + 2); }
+
+void set_data_array(uint64_t* arrays, uint64_t* array)  { *(arrays + 0) = (uint64_t) array; }
+void set_heap_array(uint64_t* arrays, uint64_t* array)  { *(arrays + 1) = (uint64_t) array; }
+void set_stack_array(uint64_t* arrays, uint64_t* array) { *(arrays + 2) = (uint64_t) array; }
+
+uint64_t is_virtual_address_in_segment(uint64_t vaddr, uint64_t start, uint64_t end);
+uint64_t is_virtual_address_in_data_segment(uint64_t vaddr);
+uint64_t is_virtual_address_in_heap_segment(uint64_t vaddr);
+uint64_t is_virtual_address_in_stack_segment(uint64_t vaddr);
+
+uint64_t vaddr_to_index(uint64_t vaddr);
+uint64_t index_to_vaddr(uint64_t index);
+
+uint64_t read_or_write(uint64_t* state_nid, uint64_t index, uint64_t value, uint64_t read);
+
+uint64_t is_comparison_operator(char* op);
+uint64_t is_bitwise_operator(char* op);
+uint64_t is_arithmetic_operator(char* op);
+uint64_t is_binary_operator(char* op);
+
+uint64_t bitwise(uint64_t a, uint64_t b, uint64_t and_xor, uint64_t or_xor);
+uint64_t bitwise_and(uint64_t a, uint64_t b);
+uint64_t bitwise_or(uint64_t a, uint64_t b);
+uint64_t bitwise_xor(uint64_t a, uint64_t b);
+
+uint64_t arithmetic_right_shift(uint64_t n, uint64_t b, uint64_t size);
+uint64_t signed_less_than_or_equal_to(uint64_t a, uint64_t b);
+
+uint64_t get_cached_state(uint64_t* line);
 
 uint64_t eval_constant_value(uint64_t* line);
 uint64_t eval_constant_digits(uint64_t* line);
@@ -279,20 +329,55 @@ uint64_t eval_ext_w(uint64_t* line);
 uint64_t eval_slice_u(uint64_t* line);
 uint64_t eval_slice_l(uint64_t* line);
 
-uint64_t get_cached_state(uint64_t* line);
-
 uint64_t eval_input(uint64_t* line);
 uint64_t eval_ext(uint64_t* line);
 uint64_t eval_slice(uint64_t* line);
-uint64_t eval_unary_op(uint64_t* line);
+uint64_t eval_concat(uint64_t* line);
+uint64_t eval_ite(uint64_t* line);
+uint64_t eval_read(uint64_t* line);
 uint64_t eval_write(uint64_t* line);
+uint64_t eval_unary_op(uint64_t* line);
 uint64_t eval_binary_op(uint64_t* line);
 
 uint64_t eval_line(uint64_t* line);
+uint64_t eval_line_for(uint64_t core, uint64_t* lines);
+
+uint64_t eval_property(uint64_t core, uint64_t* line);
+uint64_t eval_property_for(uint64_t core, uint64_t* lines);
+
+uint64_t eval_init(uint64_t* line);
+
+uint64_t eval_next(uint64_t* line);
+uint64_t eval_next_for(uint64_t core, uint64_t* lines);
+void apply_next(uint64_t* line);
+void apply_next_for(uint64_t core, uint64_t* lines);
+
+uint64_t* memcopy(uint64_t* destination, uint64_t* source, uint64_t bytes);
+
+void save_state(uint64_t* line);
+void save_state_for(uint64_t core, uint64_t* lines);
+void restore_state(uint64_t* line);
+void restore_state_for(uint64_t core, uint64_t* lines);
+
+// ------------------------ GLOBAL CONSTANTS -----------------------
+
+uint64_t UNINITIALIZED = -1; // uninitialized state
+uint64_t INITIALIZED   = 0;  // initialized state
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
 uint64_t current_step = 0; // first step in evaluation is 0
+uint64_t next_step    = 0; // initial next step in evaluation is 0
+
+uint64_t current_offset = 0; // keeps track of absolute current step
+
+uint64_t input_steps = 0; // number of steps until most recent input has been consumed
+
+uint64_t current_input = 0; // current input byte value
+
+uint64_t first_input = 0; // indicates if input has been consumed for the first time
+
+uint64_t any_input = 0; // indicates if any input has been consumed
 
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
 // -----------------------------------------------------------------
@@ -495,13 +580,13 @@ uint64_t* param_readable_bytes_nid = (uint64_t*) 0;
 
 uint64_t* state_readable_bytes_nid = (uint64_t*) 0;
 uint64_t* init_readable_bytes_nid  = (uint64_t*) 0;
-uint64_t* next_readable_bytes_nid  = (uint64_t*) 0;
+uint64_t* next_readable_bytes_nids = (uint64_t*) 0;
 
 uint64_t* eval_still_reading_active_read_nid = (uint64_t*) 0;
 
 uint64_t* state_read_bytes_nid = (uint64_t*) 0;
 uint64_t* init_read_bytes_nid  = (uint64_t*) 0;
-uint64_t* next_read_bytes_nid  = (uint64_t*) 0;
+uint64_t* next_read_bytes_nids = (uint64_t*) 0;
 
 uint64_t* eval_more_than_one_readable_byte_to_read_nid = (uint64_t*) 0;
 
@@ -526,6 +611,11 @@ void init_interface_kernel() {
   NID_WRITE_SYSCALL_ID = new_constant(OP_CONSTD, SID_MACHINE_WORD,
     SYSCALL_WRITE, 0,
     format_comment_binary("write syscall ID", SYSCALL_WRITE));
+}
+
+void init_kernels(uint64_t number_of_cores) {
+  next_readable_bytes_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+  next_read_bytes_nids     = zmalloc(number_of_cores * sizeof(uint64_t*));
 }
 
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
@@ -602,7 +692,11 @@ uint64_t* state_register_file_nid = (uint64_t*) 0;
 uint64_t* init_register_file_nid  = (uint64_t*) 0;
 uint64_t* next_register_file_nid  = (uint64_t*) 0;
 
-uint64_t* eval_core_0_register_data_flow_nid  = (uint64_t*) 0;
+uint64_t* state_register_file_nids = (uint64_t*) 0;
+uint64_t* next_register_file_nids  = (uint64_t*) 0;
+uint64_t* sync_register_file_nids  = (uint64_t*) 0;
+
+uint64_t* eval_core_0_register_data_flow_nid = (uint64_t*) 0;
 
 // ------------------------- INITIALIZATION ------------------------
 
@@ -645,14 +739,20 @@ void init_register_file_sorts() {
   SID_REGISTER_STATE = new_array(SID_REGISTER_ADDRESS, SID_MACHINE_WORD, "register state");
 }
 
+void init_register_files(uint64_t number_of_cores) {
+  state_register_file_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+  next_register_file_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+  sync_register_file_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+}
+
 // -----------------------------------------------------------------
 // ---------------------------- MEMORY -----------------------------
 // -----------------------------------------------------------------
 
 void print_memory_sorts();
 
-void new_segmentation();
-void print_segmentation();
+void new_segmentation(uint64_t core);
+void print_segmentation(uint64_t core);
 
 uint64_t* is_block_in_segment(uint64_t* block_start_nid, uint64_t* block_end_nid,
   uint64_t* segment_start_nid, uint64_t* segment_end_nid);
@@ -780,13 +880,13 @@ uint64_t* store_double_word(uint64_t* machine_word_nid, uint64_t* word_nid, uint
 
 uint64_t* does_machine_word_work_as_virtual_address(uint64_t* machine_word_nid, uint64_t* property_nid);
 
-uint64_t* is_address_in_code_segment(uint64_t* machine_word_nid);
-uint64_t* is_address_in_data_segment(uint64_t* machine_word_nid);
-uint64_t* is_address_in_heap_segment(uint64_t* machine_word_nid);
-uint64_t* is_address_in_stack_segment(uint64_t* machine_word_nid);
-uint64_t* is_address_in_main_memory(uint64_t* machine_word_nid);
+uint64_t* is_address_in_machine_word_in_code_segment(uint64_t* machine_word_nid);
+uint64_t* is_address_in_machine_word_in_data_segment(uint64_t* machine_word_nid);
+uint64_t* is_address_in_machine_word_in_heap_segment(uint64_t* machine_word_nid);
+uint64_t* is_address_in_machine_word_in_stack_segment(uint64_t* machine_word_nid);
+uint64_t* is_address_in_machine_word_in_main_memory(uint64_t* machine_word_nid);
 
-uint64_t* is_range_in_heap_segment(uint64_t* machine_word_nid, uint64_t* range_nid);
+uint64_t* is_range_in_machine_word_in_heap_segment(uint64_t* machine_word_nid, uint64_t* range_nid);
 
 uint64_t* is_sized_block_in_stack_segment(uint64_t* machine_word_nid, uint64_t* size_nid);
 uint64_t* is_sized_block_in_main_memory(uint64_t* machine_word_nid, uint64_t* size_nid);
@@ -797,9 +897,9 @@ uint64_t* fetch_compressed_instruction(uint64_t* pc_nid, uint64_t* code_segment_
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
 uint64_t SYNCHRONIZED_MEMORY = 0; // flag for synchronized main memory across cores
-uint64_t SHARED_MEMORY = 0;       // flag for shared main memory across cores
+uint64_t SHARED_MEMORY       = 0; // flag for shared main memory across cores
 
-uint64_t VIRTUAL_ADDRESS_SPACE = 0; // number of bits in virtual addresses
+uint64_t VIRTUAL_ADDRESS_SPACE = 32; // number of bits in virtual addresses
 
 uint64_t* SID_VIRTUAL_ADDRESS = (uint64_t*) 0;
 
@@ -821,6 +921,8 @@ uint64_t* NID_VIRTUAL_HALF_WORD_SIZE_MINUS_1   = (uint64_t*) 0;
 uint64_t* NID_VIRTUAL_SINGLE_WORD_SIZE_MINUS_1 = (uint64_t*) 0;
 uint64_t* NID_VIRTUAL_DOUBLE_WORD_SIZE_MINUS_1 = (uint64_t*) 0;
 
+uint64_t CODEWORDSIZEINBITS = 32;
+
 uint64_t* SID_CODE_WORD = (uint64_t*) 0;
 
 uint64_t* NID_CODE_WORD_0 = (uint64_t*) 0;
@@ -832,6 +934,8 @@ uint64_t* SID_CODE_STATE   = (uint64_t*) 0;
 
 uint64_t* NID_CODE_START = (uint64_t*) 0;
 uint64_t* NID_CODE_END   = (uint64_t*) 0;
+
+uint64_t MEMORYWORDSIZEINBITS = 64;
 
 uint64_t* SID_MEMORY_WORD = (uint64_t*) 0;
 
@@ -869,54 +973,59 @@ uint64_t* NID_BYTE_SIZE_IN_BASE_BITS = (uint64_t*) 0;
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
-uint64_t heap_start     = 0;
-uint64_t heap_size      = 0;
-uint64_t heap_allowance = 4096; // must be multiple of WORDSIZE
+uint64_t heap_initial_size = 0;
+uint64_t heap_allowance    = 4096; // must be multiple of WORDSIZE
 
-uint64_t stack_start     = 0;
-uint64_t stack_size      = 0;
-uint64_t stack_allowance = 4096; // stack allowance must be multiple of WORDSIZE > 0
+uint64_t heap_start = 0;
+uint64_t heap_size  = 0;
 
-uint64_t* init_zeroed_code_segment_nid = (uint64_t*) 0;
-uint64_t* next_zeroed_code_segment_nid = (uint64_t*) 0;
+uint64_t stack_initial_size = 0;
+uint64_t stack_allowance    = 4096; // must be multiple of WORDSIZE > 0
 
-uint64_t* initial_code_segment_nid  = (uint64_t*) 0;
-uint64_t* initial_code_segment_nids = (uint64_t*) 0;
+uint64_t stack_start = 0;
+uint64_t stack_size  = 0;
+
+uint64_t* state_zeroed_code_segment_nid = (uint64_t*) 0;
+uint64_t* init_zeroed_code_segment_nid  = (uint64_t*) 0;
+uint64_t* next_zeroed_code_segment_nid  = (uint64_t*) 0;
+
+uint64_t* initial_code_nid = (uint64_t*) 0;
+
+uint64_t* initial_code_segment_nid = (uint64_t*) 0;
 
 uint64_t* state_code_segment_nid = (uint64_t*) 0;
 uint64_t* init_code_segment_nid  = (uint64_t*) 0;
 uint64_t* next_code_segment_nid  = (uint64_t*) 0;
 
+uint64_t* state_code_segment_nids = (uint64_t*) 0;
+uint64_t* next_code_segment_nids  = (uint64_t*) 0;
+
 uint64_t* init_zeroed_main_memory_nid = (uint64_t*) 0;
 uint64_t* next_zeroed_main_memory_nid = (uint64_t*) 0;
 
-uint64_t* initial_main_memory_nid  = (uint64_t*) 0;
-uint64_t* initial_data_segment_nid = (uint64_t*) 0;
-uint64_t* initial_heap_segment_nid = (uint64_t*) 0;
+uint64_t* initial_data_nid  = (uint64_t*) 0;
+uint64_t* initial_heap_nid  = (uint64_t*) 0;
+uint64_t* initial_stack_nid = (uint64_t*) 0;
+
+uint64_t* initial_main_memory_nid = (uint64_t*) 0;
 
 uint64_t* state_main_memory_nid = (uint64_t*) 0;
 uint64_t* init_main_memory_nid  = (uint64_t*) 0;
 uint64_t* next_main_memory_nid  = (uint64_t*) 0;
 
-uint64_t* eval_core_0_memory_data_flow_nid  = (uint64_t*) 0;
+uint64_t* state_main_memory_nids = (uint64_t*) 0;
+uint64_t* next_main_memory_nids  = (uint64_t*) 0;
+uint64_t* sync_main_memory_nids  = (uint64_t*) 0;
+
+uint64_t* eval_core_0_memory_data_flow_nid = (uint64_t*) 0;
 
 // ------------------------- INITIALIZATION ------------------------
 
-void init_memory_sorts(uint64_t number_of_virtual_address_bits, uint64_t* code_word_sort_nid, uint64_t* memory_word_sort_nid) {
-  uint64_t code_size_in_code_words;
+void init_memory_sorts(uint64_t max_code_size) {
   uint64_t saved_reuse_lines;
 
-  // byte-addressed virtual memory
-
-  // assert: number of virtual address bits is a power of 2 >= 8 bits
-
-  VIRTUAL_ADDRESS_SPACE = number_of_virtual_address_bits;
-
-  if (IS64BITSYSTEM * IS64BITTARGET > 0) {
-    if (VIRTUAL_ADDRESS_SPACE > DOUBLEWORDSIZEINBITS)
-      VIRTUAL_ADDRESS_SPACE = DOUBLEWORDSIZEINBITS;
-  } else if (VIRTUAL_ADDRESS_SPACE > SINGLEWORDSIZEINBITS)
-      VIRTUAL_ADDRESS_SPACE = SINGLEWORDSIZEINBITS;
+  if (VIRTUAL_ADDRESS_SPACE > WORDSIZEINBITS)
+    VIRTUAL_ADDRESS_SPACE = WORDSIZEINBITS;
 
   SID_VIRTUAL_ADDRESS = new_bitvec(VIRTUAL_ADDRESS_SPACE,
     format_comment("%lu-bit virtual address", VIRTUAL_ADDRESS_SPACE));
@@ -941,21 +1050,15 @@ void init_memory_sorts(uint64_t number_of_virtual_address_bits, uint64_t* code_w
 
   // code segment
 
-  SID_CODE_WORD = code_word_sort_nid;
+  if (CODEWORDSIZEINBITS > WORDSIZEINBITS)
+    CODEWORDSIZEINBITS = WORDSIZEINBITS;
+
+  SID_CODE_WORD = new_bitvec(CODEWORDSIZEINBITS,
+    format_comment("%lu-bit code word", CODEWORDSIZEINBITS));
 
   NID_CODE_WORD_0 = new_constant(OP_CONSTD, SID_CODE_WORD, 0, 0, "code word 0");
 
-  // assert: code_size > 1 and code word size is a power of 2 >= 8 bits
-
-  code_size_in_code_words = code_size / get_power_of_two_size_in_bytes(eval_bitvec_size(SID_CODE_WORD));
-
-  if (code_size % get_power_of_two_size_in_bytes(eval_bitvec_size(SID_CODE_WORD)) > 0)
-    code_size_in_code_words = code_size_in_code_words + 1;
-
-  CODE_ADDRESS_SPACE = log_two(code_size_in_code_words);
-
-  if (code_size_in_code_words > two_to_the_power_of(CODE_ADDRESS_SPACE))
-    CODE_ADDRESS_SPACE = CODE_ADDRESS_SPACE + 1;
+  CODE_ADDRESS_SPACE = calculate_address_space(max_code_size, eval_bitvec_size(SID_CODE_WORD));
 
   SID_CODE_ADDRESS = new_bitvec(CODE_ADDRESS_SPACE,
     format_comment("%lu-bit code segment address", CODE_ADDRESS_SPACE));
@@ -964,14 +1067,19 @@ void init_memory_sorts(uint64_t number_of_virtual_address_bits, uint64_t* code_w
 
   // main memory
 
-  SID_MEMORY_WORD = memory_word_sort_nid;
+  if (MEMORYWORDSIZEINBITS > WORDSIZEINBITS)
+    MEMORYWORDSIZEINBITS = WORDSIZEINBITS;
+
+  SID_MEMORY_WORD = new_bitvec(MEMORYWORDSIZEINBITS,
+    format_comment("%lu-bit memory word", MEMORYWORDSIZEINBITS));
 
   NID_MEMORY_WORD_0 = new_constant(OP_CONSTD, SID_MEMORY_WORD, 0, 0, "memory word 0");
 
   // assert: memory word size is a power of 2 >= 8 bits
 
   MEMORY_ADDRESS_SPACE =
-    VIRTUAL_ADDRESS_SPACE - (get_power_of_two_size_in_bytes(eval_bitvec_size(SID_MEMORY_WORD)) - 1);
+    VIRTUAL_ADDRESS_SPACE -
+      log_two(get_power_of_two_size_in_bytes(eval_bitvec_size(SID_MEMORY_WORD)));
 
   SID_MEMORY_ADDRESS = new_bitvec(MEMORY_ADDRESS_SPACE,
     format_comment("%lu-bit physical memory address", MEMORY_ADDRESS_SPACE));
@@ -1002,9 +1110,29 @@ void init_memory_sorts(uint64_t number_of_virtual_address_bits, uint64_t* code_w
   NID_BYTE_SIZE_IN_BASE_BITS = NID_BYTE_3;
 }
 
+void init_memories(uint64_t number_of_cores) {
+  state_code_segment_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+  next_code_segment_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+
+  state_main_memory_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+  next_main_memory_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+  sync_main_memory_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+}
+
 // -----------------------------------------------------------------
 // ------------------------- INSTRUCTIONS --------------------------
 // -----------------------------------------------------------------
+
+char* get_instruction_mnemonic(uint64_t instruction_ID);
+
+uint64_t is_R_type(uint64_t instruction_ID);
+uint64_t is_I_type(uint64_t instruction_ID);
+uint64_t is_register_relative_I_type(uint64_t instruction_ID);
+uint64_t is_shift_I_type(uint64_t instruction_ID);
+uint64_t is_32_bit_shift_I_type(uint64_t instruction_ID);
+uint64_t is_S_type(uint64_t instruction_ID);
+uint64_t is_SB_type(uint64_t instruction_ID);
+uint64_t is_U_type(uint64_t instruction_ID);
 
 uint64_t* get_instruction_opcode(uint64_t* ir_nid);
 uint64_t* get_instruction_funct3(uint64_t* ir_nid);
@@ -1036,10 +1164,6 @@ uint64_t* decode_funct3(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* funct3_nid, char* funct3_comment,
   uint64_t* execute_nid, char* execute_comment,
   uint64_t* other_funct3_nid);
-uint64_t* decode_funct3_conditional(uint64_t* sid, uint64_t* ir_nid,
-  uint64_t* funct3_nid, char* funct3_comment,
-  uint64_t* evaluate_nid, uint64_t* branch_nid, uint64_t* continue_nid, char* branch_comment,
-  uint64_t* other_funct3_nid);
 uint64_t* decode_funct7(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* funct7_nid, char* funct7_comment,
   uint64_t* execute_nid, char* execute_comment,
@@ -1063,7 +1187,10 @@ uint64_t* decode_shift_imm(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* funct_sll_srl_nid, uint64_t* slli_nid, uint64_t* srli_nid,
   uint64_t* funct_sra_nid, uint64_t* srai_nid, char* comment,
   uint64_t* no_funct_nid);
-uint64_t* decode_illegal_shamt(uint64_t* ir_nid);
+
+uint64_t* is_enabled(uint64_t* instruction_nid);
+uint64_t* is_illegal_shamt(uint64_t* ir_nid);
+
 uint64_t* decode_imm_RV64I(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* addiw_nid, uint64_t* slliw_nid, uint64_t* srliw_nid, uint64_t* sraiw_nid, char* comment,
   uint64_t* no_funct_nid, uint64_t* other_opcode_nid);
@@ -1093,8 +1220,10 @@ uint64_t* decode_RV64M(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* mulw_nid,
   uint64_t* divw_nid, uint64_t* divuw_nid, uint64_t* remw_nid, uint64_t* remuw_nid, char* comment,
   uint64_t* no_funct_nid);
-uint64_t* decode_division_remainder_by_zero(uint64_t* ir_nid, uint64_t* register_file_nid);
-uint64_t* decode_signed_division_remainder_overflow(uint64_t* ir_nid, uint64_t* register_file_nid);
+
+uint64_t* is_division_remainder_by_zero(uint64_t* ir_nid, uint64_t* register_file_nid);
+uint64_t* is_signed_division_remainder_overflow(uint64_t* ir_nid, uint64_t* register_file_nid);
+
 uint64_t* decode_load_RV64I(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* ld_nid, uint64_t* lwu_nid, char* comment,
   uint64_t* no_funct3_nid);
@@ -1115,8 +1244,7 @@ uint64_t* decode_store(uint64_t* sid, uint64_t* ir_nid,
 uint64_t* decode_branch(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* beq_nid, uint64_t* bne_nid,
   uint64_t* blt_nid, uint64_t* bge_nid,
-  uint64_t* bltu_nid, uint64_t* bgeu_nid,
-  uint64_t* branch_nid, uint64_t* continue_nid, char* comment,
+  uint64_t* bltu_nid, uint64_t* bgeu_nid, char* comment,
   uint64_t* no_funct3_nid, uint64_t* other_opcode_nid);
 
 uint64_t* decode_jal(uint64_t* sid, uint64_t* ir_nid,
@@ -1159,6 +1287,7 @@ uint64_t* store_no_seg_faults(uint64_t* ir_nid, uint64_t* register_file_nid);
 uint64_t* core_memory_data_flow(uint64_t* ir_nid, uint64_t* register_file_nid, uint64_t* memory_nid);
 
 uint64_t* get_pc_value_plus_SB_immediate(uint64_t* pc_nid, uint64_t* ir_nid);
+uint64_t* execute_branch(uint64_t* pc_nid, uint64_t* ir_nid, uint64_t* condition_nid);
 uint64_t* branch_control_flow(uint64_t* pc_nid, uint64_t* ir_nid, uint64_t* register_file_nid, uint64_t* other_control_flow_nid);
 
 uint64_t* get_pc_value_plus_UJ_immediate(uint64_t* pc_nid, uint64_t* ir_nid);
@@ -1169,6 +1298,16 @@ uint64_t* jalr_control_flow(uint64_t* pc_nid, uint64_t* ir_nid, uint64_t* regist
 uint64_t* core_control_flow(uint64_t* pc_nid, uint64_t* ir_nid, uint64_t* register_file_nid);
 
 // compressed instructions
+
+uint64_t is_compressed_instruction_ID(uint64_t instruction_ID);
+uint64_t is_CR_type(uint64_t instruction_ID);
+uint64_t is_jump_CR_type(uint64_t instruction_ID);
+uint64_t is_CI_type(uint64_t instruction_ID);
+uint64_t is_CL_type(uint64_t instruction_ID);
+uint64_t is_CS_type(uint64_t instruction_ID);
+uint64_t is_register_CS_type(uint64_t instruction_ID);
+uint64_t is_CB_type(uint64_t instruction_ID);
+uint64_t is_CJ_type(uint64_t instruction_ID);
 
 uint64_t* get_compressed_instruction_opcode(uint64_t* c_ir_nid);
 uint64_t* get_compressed_instruction_funct3(uint64_t* c_ir_nid);
@@ -1215,10 +1354,6 @@ uint64_t* decode_compressed_funct3(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_funct3_nid, char* c_funct3_comment,
   uint64_t* execute_nid, char* execute_comment,
   uint64_t* other_c_funct3_nid);
-uint64_t* decode_compressed_funct3_conditional(uint64_t* sid, uint64_t* c_ir_nid,
-  uint64_t* c_funct3_nid, char* c_funct3_comment,
-  uint64_t* evaluate_nid, uint64_t* branch_nid, uint64_t* continue_nid, char* branch_comment,
-  uint64_t* other_c_funct3_nid);
 uint64_t* decode_compressed_funct2(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_funct2_nid, char* c_funct2_comment,
   uint64_t* execute_nid, char* execute_comment,
@@ -1245,8 +1380,9 @@ uint64_t* decode_compressed_addi4spn(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_addi4spn_nid, char* comment, uint64_t* other_c_funct3_nid);
 uint64_t* decode_compressed_slli(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_slli_nid, char* comment, uint64_t* other_c_funct3_nid);
+
 uint64_t* is_illegal_compressed_shift(uint64_t* c_ir_nid, uint64_t* c_shift_nid);
-uint64_t* decode_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid);
+uint64_t* is_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid);
 
 uint64_t* decode_compressed_mv_add(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_mv_nid, uint64_t* c_add_nid, char* comment,
@@ -1262,8 +1398,7 @@ uint64_t* decode_compressed_store(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_sd_nid, uint64_t* c_sw_nid, char* comment,
   uint64_t* other_c_funct3_nid);
 uint64_t* decode_compressed_branch(uint64_t* sid, uint64_t* c_ir_nid,
-  uint64_t* c_beqz_nid, uint64_t* c_bnez_nid,
-  uint64_t* branch_nid, uint64_t* continue_nid, char* comment,
+  uint64_t* c_beqz_nid, uint64_t* c_bnez_nid, char* comment,
   uint64_t* other_c_funct3_nid);
 uint64_t* decode_compressed_j(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_j_nid, char* comment, uint64_t* other_c_funct3_nid);
@@ -1303,7 +1438,7 @@ uint64_t* decode_compressed_load_with_opcode(uint64_t* sid, uint64_t* c_ir_nid,
 uint64_t* compressed_load_no_seg_faults(uint64_t* c_ir_nid, uint64_t* register_file_nid);
 uint64_t* get_pc_value_plus_2(uint64_t* pc_nid);
 uint64_t* core_compressed_register_data_flow(uint64_t* pc_nid, uint64_t* c_ir_nid,
-  uint64_t* register_file_nid, uint64_t* memory_nid);
+  uint64_t* register_file_nid, uint64_t* memory_nid, uint64_t* other_register_data_flow_nid);
 
 uint64_t* decode_compressed_memory_data_flow(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_sdsp_nid, uint64_t* c_swsp_nid,
@@ -1315,9 +1450,11 @@ uint64_t* get_sp_value_plus_CSS64_offset(uint64_t* c_ir_nid, uint64_t* register_
 uint64_t* get_rs1_shift_value_plus_CS32_offset(uint64_t* c_ir_nid, uint64_t* register_file_nid);
 uint64_t* get_rs1_shift_value_plus_CS64_offset(uint64_t* c_ir_nid, uint64_t* register_file_nid);
 uint64_t* compressed_store_no_seg_faults(uint64_t* c_ir_nid, uint64_t* register_file_nid);
-uint64_t* core_compressed_memory_data_flow(uint64_t* c_ir_nid, uint64_t* register_file_nid, uint64_t* memory_nid);
+uint64_t* core_compressed_memory_data_flow(uint64_t* c_ir_nid,
+  uint64_t* register_file_nid, uint64_t* memory_nid, uint64_t* other_memory_data_flow_nid);
 
 uint64_t* get_pc_value_plus_CB_offset(uint64_t* pc_nid, uint64_t* c_ir_nid);
+uint64_t* execute_compressed_branch(uint64_t* pc_nid, uint64_t* c_ir_nid, uint64_t* condition_nid);
 uint64_t* compressed_branch_control_flow(uint64_t* pc_nid, uint64_t* c_ir_nid, uint64_t* register_file_nid, uint64_t* other_control_flow_nid);
 
 uint64_t* get_pc_value_plus_CJ_offset(uint64_t* pc_nid, uint64_t* c_ir_nid);
@@ -1403,6 +1540,10 @@ uint64_t* NID_12_BIT_IMM_0 = (uint64_t*) 0;
 
 uint64_t RISCU = 0; // restrict to RISC-U
 
+uint64_t* SID_INSTRUCTION_ID = (uint64_t*) 0;
+
+uint64_t* NID_DISABLED = (uint64_t*) 0;
+
 uint64_t* NID_LUI  = (uint64_t*) 0;
 uint64_t* NID_ADDI = (uint64_t*) 0;
 
@@ -1418,8 +1559,7 @@ uint64_t* NID_SD = (uint64_t*) 0;
 uint64_t* NID_LW = (uint64_t*) 0;
 uint64_t* NID_SW = (uint64_t*) 0;
 
-uint64_t* NID_BEQ = (uint64_t*) 0;
-
+uint64_t* NID_BEQ  = (uint64_t*) 0;
 uint64_t* NID_JAL  = (uint64_t*) 0;
 uint64_t* NID_JALR = (uint64_t*) 0;
 
@@ -1750,21 +1890,351 @@ uint64_t* NID_C_JAL = (uint64_t*) 0;
 uint64_t* NID_C_JR   = (uint64_t*) 0;
 uint64_t* NID_C_JALR = (uint64_t*) 0;
 
+// instruction IDs
+
+uint64_t ID_UNKOWN = 0;
+
+uint64_t ID_ECALL = 1;
+
+// R-type
+
+uint64_t ID_ADD  = 2;
+uint64_t ID_SUB  = 3;
+uint64_t ID_SLL  = 4;
+uint64_t ID_SLT  = 5;
+uint64_t ID_SLTU = 6;
+uint64_t ID_XOR  = 7;
+uint64_t ID_SRL  = 8;
+uint64_t ID_SRA  = 9;
+uint64_t ID_OR   = 10;
+uint64_t ID_AND  = 11;
+
+uint64_t ID_ADDW = 12;
+uint64_t ID_SUBW = 13;
+uint64_t ID_SLLW = 14;
+uint64_t ID_SRLW = 15;
+uint64_t ID_SRAW = 16;
+
+uint64_t ID_MUL    = 17;
+uint64_t ID_MULH   = 18;
+uint64_t ID_MULHSU = 19;
+uint64_t ID_MULHU  = 20;
+uint64_t ID_DIV    = 21;
+uint64_t ID_DIVU   = 22;
+uint64_t ID_REM    = 23;
+uint64_t ID_REMU   = 24;
+
+uint64_t ID_MULW  = 25;
+uint64_t ID_DIVW  = 26;
+uint64_t ID_DIVUW = 27;
+uint64_t ID_REMW  = 28;
+uint64_t ID_REMUW = 29;
+
+// I-type
+
+uint64_t ID_JALR = 30;
+
+uint64_t ID_LB  = 31;
+uint64_t ID_LH  = 32;
+uint64_t ID_LW  = 33;
+uint64_t ID_LBU = 34;
+uint64_t ID_LHU = 35;
+uint64_t ID_LWU = 36;
+uint64_t ID_LD  = 37;
+
+uint64_t ID_ADDI  = 38;
+uint64_t ID_SLTI  = 39;
+uint64_t ID_SLTIU = 40;
+uint64_t ID_XORI  = 41;
+uint64_t ID_ORI   = 42;
+uint64_t ID_ANDI  = 43;
+
+uint64_t ID_ADDIW = 44;
+
+uint64_t ID_SLLI = 45;
+uint64_t ID_SRLI = 46;
+uint64_t ID_SRAI = 47;
+
+uint64_t ID_SLLIW = 48;
+uint64_t ID_SRLIW = 49;
+uint64_t ID_SRAIW = 50;
+
+// S-type
+
+uint64_t ID_SB = 51;
+uint64_t ID_SH = 52;
+uint64_t ID_SW = 53;
+uint64_t ID_SD = 54;
+
+// SB-type
+
+uint64_t ID_BEQ  = 55;
+uint64_t ID_BNE  = 56;
+uint64_t ID_BLT  = 57;
+uint64_t ID_BGE  = 58;
+uint64_t ID_BLTU = 59;
+uint64_t ID_BGEU = 60;
+
+// U-type
+
+uint64_t ID_LUI   = 61;
+uint64_t ID_AUIPC = 62;
+
+// UJ-type
+
+uint64_t ID_JAL = 63;
+
+// compressed instruction IDs
+
+// CR-type
+
+uint64_t ID_C_MV  = 64; // "c.mv";
+uint64_t ID_C_ADD = 65; // "c.add";
+
+uint64_t ID_C_JR   = 66; // "c.jr";
+uint64_t ID_C_JALR = 67; // "c.jalr";
+
+// CI-type
+
+uint64_t ID_C_LI  = 68; // "c.li";
+uint64_t ID_C_LUI = 69; // "c.lui";
+
+uint64_t ID_C_ADDI     = 70; // "c.addi";
+uint64_t ID_C_ADDIW    = 71; // "c.addiw";
+uint64_t ID_C_ADDI16SP = 72; // "c.addi16sp";
+
+// CIW-type
+
+uint64_t ID_C_ADDI4SPN = 73; // "c.addi4spn";
+
+// CI-type
+
+uint64_t ID_C_SLLI = 74; // "c.slli";
+
+uint64_t ID_C_LWSP = 75; // "c.lwsp";
+uint64_t ID_C_LDSP = 76; // "c.ldsp";
+
+// CL-type
+
+uint64_t ID_C_LW = 77; // "c.lw";
+uint64_t ID_C_LD = 78; // "c.ld";
+
+// CS-type
+
+uint64_t ID_C_SW = 79; // "c.sw";
+uint64_t ID_C_SD = 80; // "c.sd";
+
+uint64_t ID_C_SUB = 81; // "c.sub";
+uint64_t ID_C_XOR = 82; // "c.xor";
+uint64_t ID_C_OR  = 83; // "c.or";
+uint64_t ID_C_AND = 84; // "c.and";
+
+uint64_t ID_C_ADDW = 85; // "c.addw";
+uint64_t ID_C_SUBW = 86; // "c.subw";
+
+// CSS-type
+
+uint64_t ID_C_SWSP = 87; // "c.swsp";
+uint64_t ID_C_SDSP = 88; // "c.sdsp";
+
+// CB-type
+
+uint64_t ID_C_BEQZ = 89; // "c.beqz";
+uint64_t ID_C_BNEZ = 90; // "c.bnez";
+
+uint64_t ID_C_ANDI = 91; // "c.andi";
+
+uint64_t ID_C_SRLI = 92; // "c.srli";
+uint64_t ID_C_SRAI = 93; // "c.srai";
+
+// CJ-type
+
+uint64_t ID_C_J   = 94; // "c.j";
+uint64_t ID_C_JAL = 95; // "c.jal";
+
+uint64_t* RISC_V_MNEMONICS = (uint64_t*) 0;
+
 // ------------------------ GLOBAL VARIABLES -----------------------
 
-uint64_t* eval_known_instructions_nid            = (uint64_t*) 0;
-uint64_t* eval_known_compressed_instructions_nid = (uint64_t*) 0;
+uint64_t* eval_instruction_ID_nid            = (uint64_t*) 0;
+uint64_t* eval_compressed_instruction_ID_nid = (uint64_t*) 0;
 
-uint64_t* eval_core_register_data_flow_nid = (uint64_t*) 0;
-uint64_t* eval_core_memory_data_flow_nid   = (uint64_t*) 0;
+uint64_t* eval_instruction_ID_nids = (uint64_t*) 0;
 
-uint64_t* eval_core_instruction_register_data_flow_nid            = (uint64_t*) 0;
-uint64_t* eval_core_compressed_instruction_register_data_flow_nid = (uint64_t*) 0;
+uint64_t* eval_register_data_flow_nid = (uint64_t*) 0;
+uint64_t* eval_memory_data_flow_nid   = (uint64_t*) 0;
 
-uint64_t* eval_core_instruction_memory_data_flow_nid            = (uint64_t*) 0;
-uint64_t* eval_core_compressed_instruction_memory_data_flow_nid = (uint64_t*) 0;
+uint64_t* eval_instruction_register_data_flow_nid            = (uint64_t*) 0;
+uint64_t* eval_compressed_instruction_register_data_flow_nid = (uint64_t*) 0;
+
+uint64_t* eval_instruction_memory_data_flow_nid            = (uint64_t*) 0;
+uint64_t* eval_compressed_instruction_memory_data_flow_nid = (uint64_t*) 0;
 
 // ------------------------- INITIALIZATION ------------------------
+
+void init_instruction_mnemonics() {
+  RISC_V_MNEMONICS = smalloc((ID_C_JAL + 1) * sizeof(char*));
+
+  *(RISC_V_MNEMONICS + ID_UNKOWN) = (uint64_t) "unkown";
+
+  *(RISC_V_MNEMONICS + ID_ECALL) = (uint64_t) "ecall";
+
+  // R-type
+
+  *(RISC_V_MNEMONICS + ID_ADD)  = (uint64_t) "add";
+  *(RISC_V_MNEMONICS + ID_SUB)  = (uint64_t) "sub";
+  *(RISC_V_MNEMONICS + ID_SLL)  = (uint64_t) "sll";
+  *(RISC_V_MNEMONICS + ID_SLT)  = (uint64_t) "slt";
+  *(RISC_V_MNEMONICS + ID_SLTU) = (uint64_t) "sltu";
+  *(RISC_V_MNEMONICS + ID_XOR)  = (uint64_t) "xor";
+  *(RISC_V_MNEMONICS + ID_SRL)  = (uint64_t) "srl";
+  *(RISC_V_MNEMONICS + ID_SRA)  = (uint64_t) "sra";
+  *(RISC_V_MNEMONICS + ID_OR)   = (uint64_t) "or";
+  *(RISC_V_MNEMONICS + ID_AND)  = (uint64_t) "and";
+
+  *(RISC_V_MNEMONICS + ID_ADDW) = (uint64_t) "addw";
+  *(RISC_V_MNEMONICS + ID_SUBW) = (uint64_t) "subw";
+  *(RISC_V_MNEMONICS + ID_SLLW) = (uint64_t) "sllw";
+  *(RISC_V_MNEMONICS + ID_SRLW) = (uint64_t) "srlw";
+  *(RISC_V_MNEMONICS + ID_SRAW) = (uint64_t) "sraw";
+
+  *(RISC_V_MNEMONICS + ID_MUL)    = (uint64_t) "mul";
+  *(RISC_V_MNEMONICS + ID_MULH)   = (uint64_t) "mulh";
+  *(RISC_V_MNEMONICS + ID_MULHSU) = (uint64_t) "mulhsu";
+  *(RISC_V_MNEMONICS + ID_MULHU)  = (uint64_t) "mulhu";
+  *(RISC_V_MNEMONICS + ID_DIV)    = (uint64_t) "div";
+  *(RISC_V_MNEMONICS + ID_DIVU)   = (uint64_t) "divu";
+  *(RISC_V_MNEMONICS + ID_REM)    = (uint64_t) "rem";
+  *(RISC_V_MNEMONICS + ID_REMU)   = (uint64_t) "remu";
+
+  *(RISC_V_MNEMONICS + ID_MULW)  = (uint64_t) "mulw";
+  *(RISC_V_MNEMONICS + ID_DIVW)  = (uint64_t) "divw";
+  *(RISC_V_MNEMONICS + ID_DIVUW) = (uint64_t) "divuw";
+  *(RISC_V_MNEMONICS + ID_REMW)  = (uint64_t) "remw";
+  *(RISC_V_MNEMONICS + ID_REMUW) = (uint64_t) "remuw";
+
+  // I-type
+
+  *(RISC_V_MNEMONICS + ID_JALR) = (uint64_t) "jalr";
+
+  *(RISC_V_MNEMONICS + ID_LB)  = (uint64_t) "lb";
+  *(RISC_V_MNEMONICS + ID_LH)  = (uint64_t) "lh";
+  *(RISC_V_MNEMONICS + ID_LW)  = (uint64_t) "lw";
+  *(RISC_V_MNEMONICS + ID_LBU) = (uint64_t) "lbu";
+  *(RISC_V_MNEMONICS + ID_LHU) = (uint64_t) "lhu";
+  *(RISC_V_MNEMONICS + ID_LWU) = (uint64_t) "lwu";
+  *(RISC_V_MNEMONICS + ID_LD)  = (uint64_t) "ld";
+
+  *(RISC_V_MNEMONICS + ID_ADDI)  = (uint64_t) "addi";
+  *(RISC_V_MNEMONICS + ID_SLTI)  = (uint64_t) "slti";
+  *(RISC_V_MNEMONICS + ID_SLTIU) = (uint64_t) "sltiu";
+  *(RISC_V_MNEMONICS + ID_XORI)  = (uint64_t) "xori";
+  *(RISC_V_MNEMONICS + ID_ORI)   = (uint64_t) "ori";
+  *(RISC_V_MNEMONICS + ID_ANDI)  = (uint64_t) "andi";
+
+  *(RISC_V_MNEMONICS + ID_ADDIW) = (uint64_t) "addiw";
+
+  *(RISC_V_MNEMONICS + ID_SLLI) = (uint64_t) "slli";
+  *(RISC_V_MNEMONICS + ID_SRLI) = (uint64_t) "srli";
+  *(RISC_V_MNEMONICS + ID_SRAI) = (uint64_t) "srai";
+
+  *(RISC_V_MNEMONICS + ID_SLLIW) = (uint64_t) "slliw";
+  *(RISC_V_MNEMONICS + ID_SRLIW) = (uint64_t) "srliw";
+  *(RISC_V_MNEMONICS + ID_SRAIW) = (uint64_t) "sraiw";
+
+  // S-type
+
+  *(RISC_V_MNEMONICS + ID_SB) = (uint64_t) "sb";
+  *(RISC_V_MNEMONICS + ID_SH) = (uint64_t) "sh";
+  *(RISC_V_MNEMONICS + ID_SW) = (uint64_t) "sw";
+  *(RISC_V_MNEMONICS + ID_SD) = (uint64_t) "sd";
+
+  // SB-type
+
+  *(RISC_V_MNEMONICS + ID_BEQ)  = (uint64_t) "beq";
+  *(RISC_V_MNEMONICS + ID_BNE)  = (uint64_t) "bne";
+  *(RISC_V_MNEMONICS + ID_BLT)  = (uint64_t) "blt";
+  *(RISC_V_MNEMONICS + ID_BGE)  = (uint64_t) "bge";
+  *(RISC_V_MNEMONICS + ID_BLTU) = (uint64_t) "bltu";
+  *(RISC_V_MNEMONICS + ID_BGEU) = (uint64_t) "bgeu";
+
+  // U-type
+
+  *(RISC_V_MNEMONICS + ID_LUI)   = (uint64_t) "lui";
+  *(RISC_V_MNEMONICS + ID_AUIPC) = (uint64_t) "auipc";
+
+  // UJ-type
+
+  *(RISC_V_MNEMONICS + ID_JAL) = (uint64_t) "jal";
+
+  // compressed instruction IDs
+
+  // CR-type
+
+  *(RISC_V_MNEMONICS + ID_C_MV)  = (uint64_t) "c.mv";
+  *(RISC_V_MNEMONICS + ID_C_ADD) = (uint64_t) "c.add";
+
+  *(RISC_V_MNEMONICS + ID_C_JR)   = (uint64_t) "c.jr";
+  *(RISC_V_MNEMONICS + ID_C_JALR) = (uint64_t) "c.jalr";
+
+  // CI-type
+
+  *(RISC_V_MNEMONICS + ID_C_LI)  = (uint64_t) "c.li";
+  *(RISC_V_MNEMONICS + ID_C_LUI) = (uint64_t) "c.lui";
+
+  *(RISC_V_MNEMONICS + ID_C_ADDI)     = (uint64_t) "c.addi";
+  *(RISC_V_MNEMONICS + ID_C_ADDIW)    = (uint64_t) "c.addiw";
+  *(RISC_V_MNEMONICS + ID_C_ADDI16SP) = (uint64_t) "c.addi16sp";
+
+  // CIW-type
+
+  *(RISC_V_MNEMONICS + ID_C_ADDI4SPN) = (uint64_t) "c.addi4spn";
+
+  // CI-type
+
+  *(RISC_V_MNEMONICS + ID_C_SLLI) = (uint64_t) "c.slli";
+
+  *(RISC_V_MNEMONICS + ID_C_LWSP) = (uint64_t) "c.lwsp";
+  *(RISC_V_MNEMONICS + ID_C_LDSP) = (uint64_t) "c.ldsp";
+
+  // CL-type
+
+  *(RISC_V_MNEMONICS + ID_C_LW) = (uint64_t) "c.lw";
+  *(RISC_V_MNEMONICS + ID_C_LD) = (uint64_t) "c.ld";
+
+  // CS-type
+
+  *(RISC_V_MNEMONICS + ID_C_SW) = (uint64_t) "c.sw";
+  *(RISC_V_MNEMONICS + ID_C_SD) = (uint64_t) "c.sd";
+
+  *(RISC_V_MNEMONICS + ID_C_SUB) = (uint64_t) "c.sub";
+  *(RISC_V_MNEMONICS + ID_C_XOR) = (uint64_t) "c.xor";
+  *(RISC_V_MNEMONICS + ID_C_OR)  = (uint64_t) "c.or";
+  *(RISC_V_MNEMONICS + ID_C_AND) = (uint64_t) "c.and";
+
+  *(RISC_V_MNEMONICS + ID_C_ADDW) = (uint64_t) "c.addw";
+  *(RISC_V_MNEMONICS + ID_C_SUBW) = (uint64_t) "c.subw";
+
+  // CSS-type
+
+  *(RISC_V_MNEMONICS + ID_C_SWSP) = (uint64_t) "c.swsp";
+  *(RISC_V_MNEMONICS + ID_C_SDSP) = (uint64_t) "c.sdsp";
+
+  // CB-type
+
+  *(RISC_V_MNEMONICS + ID_C_BEQZ) = (uint64_t) "c.beqz";
+  *(RISC_V_MNEMONICS + ID_C_BNEZ) = (uint64_t) "c.bnez";
+
+  *(RISC_V_MNEMONICS + ID_C_ANDI) = (uint64_t) "c.andi";
+
+  *(RISC_V_MNEMONICS + ID_C_SRLI) = (uint64_t) "c.srli";
+  *(RISC_V_MNEMONICS + ID_C_SRAI) = (uint64_t) "c.srai";
+
+  // CJ-type
+
+  *(RISC_V_MNEMONICS + ID_C_J)   = (uint64_t) "c.j";
+  *(RISC_V_MNEMONICS + ID_C_JAL) = (uint64_t) "c.jal";
+}
 
 void init_instruction_sorts() {
   SID_INSTRUCTION_WORD = SID_SINGLE_WORD;
@@ -1843,38 +2313,41 @@ void init_instruction_sorts() {
 
   // RISC-U instructions
 
-  NID_LUI  = NID_TRUE;
-  NID_ADDI = NID_TRUE;
+  SID_INSTRUCTION_ID = new_bitvec(7, "7-bit instruction ID");
 
-  NID_ADD  = NID_TRUE;
-  NID_SUB  = NID_TRUE;
-  NID_MUL  = NID_TRUE;
-  NID_DIVU = NID_TRUE;
-  NID_REMU = NID_TRUE;
-  NID_SLTU = NID_TRUE;
+  NID_DISABLED = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_UNKOWN, 0, get_instruction_mnemonic(ID_UNKOWN));
 
-  NID_LW = NID_TRUE;
-  NID_SW = NID_TRUE;
+  NID_LUI  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_LUI, 0, get_instruction_mnemonic(ID_LUI));
+  NID_ADDI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_ADDI, 0, get_instruction_mnemonic(ID_ADDI));
+
+  NID_ADD  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_ADD, 0, get_instruction_mnemonic(ID_ADD));
+  NID_SUB  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SUB, 0, get_instruction_mnemonic(ID_SUB));
+  NID_MUL  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_MUL, 0, get_instruction_mnemonic(ID_MUL));
+  NID_DIVU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_DIVU, 0, get_instruction_mnemonic(ID_DIVU));
+  NID_REMU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_REMU, 0, get_instruction_mnemonic(ID_REMU));
+  NID_SLTU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SLTU, 0, get_instruction_mnemonic(ID_SLTU));
+
+  NID_LW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_LW, 0, get_instruction_mnemonic(ID_LW));
+  NID_SW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SW, 0, get_instruction_mnemonic(ID_SW));
+
+  NID_LD = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_LD, 0, get_instruction_mnemonic(ID_LD));
+  NID_SD = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SD, 0, get_instruction_mnemonic(ID_SD));
+
+  NID_BEQ  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_BEQ, 0, get_instruction_mnemonic(ID_BEQ));
+  NID_JAL  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_JAL, 0, get_instruction_mnemonic(ID_JAL));
+  NID_JALR = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_JALR, 0, get_instruction_mnemonic(ID_JALR));
+
+  NID_ECALL = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_ECALL, 0, get_instruction_mnemonic(ID_ECALL));
 
   if (IS64BITTARGET) {
-    NID_LD = NID_TRUE;
-    NID_SD = NID_TRUE;
-
     if (RISCU) {
-      NID_LW = NID_FALSE;
-      NID_SW = NID_FALSE;
+      NID_LW = NID_DISABLED;
+      NID_SW = NID_DISABLED;
     }
   } else {
-    NID_LD = NID_FALSE;
-    NID_SD = NID_FALSE;
+    NID_LD = NID_DISABLED;
+    NID_SD = NID_DISABLED;
   }
-
-  NID_BEQ = NID_TRUE;
-
-  NID_JAL  = NID_TRUE;
-  NID_JALR = NID_TRUE;
-
-  NID_ECALL = NID_TRUE;
 
   // RV32I codes missing in RISC-U
 
@@ -1911,75 +2384,75 @@ void init_instruction_sorts() {
   // RV32I instruction switches
 
   if (RISCU) {
-    NID_AUIPC = NID_FALSE;
+    NID_AUIPC = NID_DISABLED;
 
-    NID_BNE  = NID_FALSE;
-    NID_BLT  = NID_FALSE;
-    NID_BGE  = NID_FALSE;
-    NID_BLTU = NID_FALSE;
-    NID_BGEU = NID_FALSE;
+    NID_BNE  = NID_DISABLED;
+    NID_BLT  = NID_DISABLED;
+    NID_BGE  = NID_DISABLED;
+    NID_BLTU = NID_DISABLED;
+    NID_BGEU = NID_DISABLED;
 
-    NID_LB  = NID_FALSE;
-    NID_LH  = NID_FALSE;
-    NID_LBU = NID_FALSE;
-    NID_LHU = NID_FALSE;
+    NID_LB  = NID_DISABLED;
+    NID_LH  = NID_DISABLED;
+    NID_LBU = NID_DISABLED;
+    NID_LHU = NID_DISABLED;
 
-    NID_SB = NID_FALSE;
-    NID_SH = NID_FALSE;
+    NID_SB = NID_DISABLED;
+    NID_SH = NID_DISABLED;
 
-    NID_SLTI  = NID_FALSE;
-    NID_SLTIU = NID_FALSE;
-    NID_XORI  = NID_FALSE;
-    NID_ORI   = NID_FALSE;
-    NID_ANDI  = NID_FALSE;
+    NID_SLTI  = NID_DISABLED;
+    NID_SLTIU = NID_DISABLED;
+    NID_XORI  = NID_DISABLED;
+    NID_ORI   = NID_DISABLED;
+    NID_ANDI  = NID_DISABLED;
 
-    NID_SLLI = NID_FALSE;
-    NID_SRLI = NID_FALSE;
-    NID_SRAI = NID_FALSE;
+    NID_SLLI = NID_DISABLED;
+    NID_SRLI = NID_DISABLED;
+    NID_SRAI = NID_DISABLED;
 
-    NID_SLL = NID_FALSE;
-    NID_SLT = NID_FALSE;
-    NID_XOR = NID_FALSE;
-    NID_SRL = NID_FALSE;
-    NID_SRA = NID_FALSE;
+    NID_SLL = NID_DISABLED;
+    NID_SLT = NID_DISABLED;
+    NID_XOR = NID_DISABLED;
+    NID_SRL = NID_DISABLED;
+    NID_SRA = NID_DISABLED;
 
-    NID_OR  = NID_FALSE;
-    NID_AND = NID_FALSE;
+    NID_OR  = NID_DISABLED;
+    NID_AND = NID_DISABLED;
   } else {
-    NID_AUIPC = NID_TRUE;
+    NID_AUIPC = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_AUIPC, 0, get_instruction_mnemonic(ID_AUIPC));
 
-    NID_BNE  = NID_TRUE;
-    NID_BLT  = NID_TRUE;
-    NID_BGE  = NID_TRUE;
-    NID_BLTU = NID_TRUE;
-    NID_BGEU = NID_TRUE;
+    NID_BNE  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_BNE, 0, get_instruction_mnemonic(ID_BNE));
+    NID_BLT  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_BLT, 0, get_instruction_mnemonic(ID_BLT));
+    NID_BGE  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_BGE, 0, get_instruction_mnemonic(ID_BGE));
+    NID_BLTU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_BLTU, 0, get_instruction_mnemonic(ID_BLTU));
+    NID_BGEU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_BGEU, 0, get_instruction_mnemonic(ID_BGEU));
 
-    NID_LB  = NID_TRUE;
-    NID_LH  = NID_TRUE;
-    NID_LBU = NID_TRUE;
-    NID_LHU = NID_TRUE;
+    NID_LB  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_LB, 0, get_instruction_mnemonic(ID_LB));
+    NID_LH  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_LH, 0, get_instruction_mnemonic(ID_LH));
+    NID_LBU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_LBU, 0, get_instruction_mnemonic(ID_LBU));
+    NID_LHU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_LHU, 0, get_instruction_mnemonic(ID_LHU));
 
-    NID_SB = NID_TRUE;
-    NID_SH = NID_TRUE;
+    NID_SB = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SB, 0, get_instruction_mnemonic(ID_SB));
+    NID_SH = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SH, 0, get_instruction_mnemonic(ID_SH));
 
-    NID_SLTI  = NID_TRUE;
-    NID_SLTIU = NID_TRUE;
-    NID_XORI  = NID_TRUE;
-    NID_ORI   = NID_TRUE;
-    NID_ANDI  = NID_TRUE;
+    NID_SLTI  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SLTI, 0, get_instruction_mnemonic(ID_SLTI));
+    NID_SLTIU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SLTIU, 0, get_instruction_mnemonic(ID_SLTIU));
+    NID_XORI  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_XORI, 0, get_instruction_mnemonic(ID_XORI));
+    NID_ORI   = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_ORI, 0, get_instruction_mnemonic(ID_ORI));
+    NID_ANDI  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_ANDI, 0, get_instruction_mnemonic(ID_ANDI));
 
-    NID_SLLI = NID_TRUE;
-    NID_SRLI = NID_TRUE;
-    NID_SRAI = NID_TRUE;
+    NID_SLLI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SLLI, 0, get_instruction_mnemonic(ID_SLLI));
+    NID_SRLI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SRLI, 0, get_instruction_mnemonic(ID_SRLI));
+    NID_SRAI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SRAI, 0, get_instruction_mnemonic(ID_SRAI));
 
-    NID_SLL = NID_TRUE;
-    NID_SLT = NID_TRUE;
-    NID_XOR = NID_TRUE;
-    NID_SRL = NID_TRUE;
-    NID_SRA = NID_TRUE;
+    NID_SLL = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SLL, 0, get_instruction_mnemonic(ID_SLL));
+    NID_SLT = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SLT, 0, get_instruction_mnemonic(ID_SLT));
+    NID_XOR = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_XOR, 0, get_instruction_mnemonic(ID_XOR));
+    NID_SRL = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SRL, 0, get_instruction_mnemonic(ID_SRL));
+    NID_SRA = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SRA, 0, get_instruction_mnemonic(ID_SRA));
 
-    NID_OR  = NID_TRUE;
-    NID_AND = NID_TRUE;
+    NID_OR  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_OR, 0, get_instruction_mnemonic(ID_OR));
+    NID_AND = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_AND, 0, get_instruction_mnemonic(ID_AND));
   }
 
   // RV64I codes missing in RISC-U
@@ -1996,33 +2469,33 @@ void init_instruction_sorts() {
 
   // RV64I instruction switches
 
-  NID_LWU = NID_FALSE;
+  NID_LWU = NID_DISABLED;
 
-  NID_ADDIW = NID_FALSE;
-  NID_SLLIW = NID_FALSE;
-  NID_SRLIW = NID_FALSE;
-  NID_SRAIW = NID_FALSE;
+  NID_ADDIW = NID_DISABLED;
+  NID_SLLIW = NID_DISABLED;
+  NID_SRLIW = NID_DISABLED;
+  NID_SRAIW = NID_DISABLED;
 
-  NID_ADDW = NID_FALSE;
-  NID_SUBW = NID_FALSE;
-  NID_SLLW = NID_FALSE;
-  NID_SRLW = NID_FALSE;
-  NID_SRAW = NID_FALSE;
+  NID_ADDW = NID_DISABLED;
+  NID_SUBW = NID_DISABLED;
+  NID_SLLW = NID_DISABLED;
+  NID_SRLW = NID_DISABLED;
+  NID_SRAW = NID_DISABLED;
 
   if (RISCU == 0)
     if (IS64BITTARGET) {
-      NID_LWU = NID_TRUE;
+      NID_LWU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_LWU, 0, get_instruction_mnemonic(ID_LWU));
 
-      NID_ADDIW = NID_TRUE;
-      NID_SLLIW = NID_TRUE;
-      NID_SRLIW = NID_TRUE;
-      NID_SRAIW = NID_TRUE;
+      NID_ADDIW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_ADDIW, 0, get_instruction_mnemonic(ID_ADDIW));
+      NID_SLLIW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SLLIW, 0, get_instruction_mnemonic(ID_SLLIW));
+      NID_SRLIW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SRLIW, 0, get_instruction_mnemonic(ID_SRLIW));
+      NID_SRAIW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SRAIW, 0, get_instruction_mnemonic(ID_SRAIW));
 
-      NID_ADDW = NID_TRUE;
-      NID_SUBW = NID_TRUE;
-      NID_SLLW = NID_TRUE;
-      NID_SRLW = NID_TRUE;
-      NID_SRAW = NID_TRUE;
+      NID_ADDW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_ADDW, 0, get_instruction_mnemonic(ID_ADDW));
+      NID_SUBW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SUBW, 0, get_instruction_mnemonic(ID_SUBW));
+      NID_SLLW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SLLW, 0, get_instruction_mnemonic(ID_SLLW));
+      NID_SRLW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SRLW, 0, get_instruction_mnemonic(ID_SRLW));
+      NID_SRAW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_SRAW, 0, get_instruction_mnemonic(ID_SRAW));
     }
 
   // RV32M codes missing in RISC-U
@@ -2038,22 +2511,25 @@ void init_instruction_sorts() {
   if (RISCU)
     RV32M = 1;
 
-  NID_MULH   = NID_FALSE;
-  NID_MULHSU = NID_FALSE;
-  NID_MULHU  = NID_FALSE;
-  NID_DIV    = NID_FALSE;
-  NID_REM    = NID_FALSE;
+  NID_MULH   = NID_DISABLED;
+  NID_MULHSU = NID_DISABLED;
+  NID_MULHU  = NID_DISABLED;
+  NID_DIV    = NID_DISABLED;
+  NID_REM    = NID_DISABLED;
 
   if (RISCU == 0) {
     if (RV32M) {
-      NID_MUL    = NID_TRUE;
-      NID_MULH   = NID_TRUE;
-      NID_MULHSU = NID_TRUE;
-      NID_MULHU  = NID_TRUE;
-      NID_DIV    = NID_TRUE;
-      NID_REM    = NID_TRUE;
-    } else
-      NID_MUL = NID_FALSE;
+      // MUL, DIVU, REMU already defined
+      NID_MULH   = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_MULH, 0, get_instruction_mnemonic(ID_MULH));
+      NID_MULHSU = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_MULHSU, 0, get_instruction_mnemonic(ID_MULHSU));
+      NID_MULHU  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_MULHU, 0, get_instruction_mnemonic(ID_MULHU));
+      NID_DIV    = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_DIV, 0, get_instruction_mnemonic(ID_DIV));
+      NID_REM    = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_REM, 0, get_instruction_mnemonic(ID_REM));
+    } else {
+      NID_MUL  = NID_DISABLED;
+      NID_DIVU = NID_DISABLED;
+      NID_REMU = NID_DISABLED;
+    }
   }
 
   // RV64M instruction switches
@@ -2065,19 +2541,21 @@ void init_instruction_sorts() {
     RV64M = 0;
 
   if (RV64M) {
-    NID_MULW  = NID_TRUE;
-    NID_DIVW  = NID_TRUE;
-    NID_DIVUW = NID_TRUE;
-    NID_REMW  = NID_TRUE;
-    NID_REMUW = NID_TRUE;
+    NID_MULW  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_MULW, 0, get_instruction_mnemonic(ID_MULW));
+    NID_DIVW  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_DIVW, 0, get_instruction_mnemonic(ID_DIVW));
+    NID_DIVUW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_DIVUW, 0, get_instruction_mnemonic(ID_DIVUW));
+    NID_REMW  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_REMW, 0, get_instruction_mnemonic(ID_REMW));
+    NID_REMUW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_REMUW, 0, get_instruction_mnemonic(ID_REMUW));
   } else {
-    NID_MULW  = NID_FALSE;
-    NID_DIVW  = NID_FALSE;
-    NID_DIVUW = NID_FALSE;
-    NID_REMW  = NID_FALSE;
-    NID_REMUW = NID_FALSE;
+    NID_MULW  = NID_DISABLED;
+    NID_DIVW  = NID_DISABLED;
+    NID_DIVUW = NID_DISABLED;
+    NID_REMW  = NID_DISABLED;
+    NID_REMUW = NID_DISABLED;
   }
+}
 
+void init_compressed_instruction_sorts() {
   // RVC codes
 
   SID_OPCODE_C = new_bitvec(2, "compressed opcode sort");
@@ -2159,152 +2637,179 @@ void init_instruction_sorts() {
   if (RISCU)
     RVC = 0;
 
-  if (RVC) {
-    NID_C_LI  = NID_TRUE;
-    NID_C_LUI = NID_TRUE;
+  NID_C_LI  = NID_DISABLED;
+  NID_C_LUI = NID_DISABLED;
 
-    NID_C_ADDI = NID_TRUE;
-    if (IS64BITTARGET)
-      NID_C_ADDIW = NID_TRUE;
-    else
-      NID_C_ADDIW = NID_FALSE;
-    NID_C_ADDI16SP = NID_TRUE;
+  NID_C_ADDI     = NID_DISABLED;
+  NID_C_ADDIW    = NID_DISABLED;
+  NID_C_ADDI16SP = NID_DISABLED;
 
-    NID_C_ADDI4SPN = NID_TRUE;
+  NID_C_ADDI4SPN = NID_DISABLED;
 
-    NID_C_ANDI = NID_TRUE;
+  NID_C_ANDI = NID_DISABLED;
 
-    NID_C_SLLI = NID_TRUE;
-    NID_C_SRLI = NID_TRUE;
-    NID_C_SRAI = NID_TRUE;
+  NID_C_SLLI = NID_DISABLED;
+  NID_C_SRLI = NID_DISABLED;
+  NID_C_SRAI = NID_DISABLED;
 
-    NID_C_MV   = NID_TRUE;
-    NID_C_ADD  = NID_TRUE;
+  NID_C_MV  = NID_DISABLED;
+  NID_C_ADD = NID_DISABLED;
 
-    NID_C_SUB  = NID_TRUE;
-    NID_C_XOR  = NID_TRUE;
-    NID_C_OR   = NID_TRUE;
-    NID_C_AND  = NID_TRUE;
+  NID_C_SUB = NID_DISABLED;
+  NID_C_XOR = NID_DISABLED;
+  NID_C_OR  = NID_DISABLED;
+  NID_C_AND = NID_DISABLED;
 
-    if (IS64BITTARGET) {
-      NID_C_ADDW = NID_TRUE;
-      NID_C_SUBW = NID_TRUE;
-    } else {
-      NID_C_ADDW = NID_FALSE;
-      NID_C_SUBW = NID_FALSE;
-    }
+  NID_C_ADDW = NID_DISABLED;
+  NID_C_SUBW = NID_DISABLED;
 
-    NID_C_LWSP = NID_TRUE;
-    NID_C_LW   = NID_TRUE;
+  NID_C_LWSP = NID_DISABLED;
+  NID_C_LW   = NID_DISABLED;
 
-    NID_C_SWSP = NID_TRUE;
-    NID_C_SW   = NID_TRUE;
+  NID_C_LDSP = NID_DISABLED;
+  NID_C_LD   = NID_DISABLED;
 
-    if (IS64BITTARGET) {
-      NID_C_LDSP = NID_TRUE;
-      NID_C_LD   = NID_TRUE;
+  NID_C_SWSP = NID_DISABLED;
+  NID_C_SW   = NID_DISABLED;
 
-      NID_C_SDSP = NID_TRUE;
-      NID_C_SD   = NID_TRUE;
-    } else {
-      NID_C_LDSP = NID_FALSE;
-      NID_C_LD   = NID_FALSE;
+  NID_C_SDSP = NID_DISABLED;
+  NID_C_SD   = NID_DISABLED;
 
-      NID_C_SDSP = NID_FALSE;
-      NID_C_SD   = NID_FALSE;
-    }
+  NID_C_BEQZ = NID_DISABLED;
+  NID_C_BNEZ = NID_DISABLED;
 
-    NID_C_BEQZ = NID_TRUE;
-    NID_C_BNEZ = NID_TRUE;
+  NID_C_J   = NID_DISABLED;
+  NID_C_JAL = NID_DISABLED;
 
-    NID_C_J = NID_TRUE;
-    if (IS64BITTARGET)
-      NID_C_JAL = NID_FALSE;
-    else
-      NID_C_JAL = NID_TRUE;
+  NID_C_JR   = NID_DISABLED;
+  NID_C_JALR = NID_DISABLED;
 
-    NID_C_JR   = NID_TRUE;
-    NID_C_JALR = NID_TRUE;
+  if (RVC == 0)
+    // avoiding oversized then case
+    return;
+
+  NID_C_LI  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_LI, 0, get_instruction_mnemonic(ID_C_LI));
+  NID_C_LUI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_LUI, 0, get_instruction_mnemonic(ID_C_LUI));
+
+  NID_C_ADDI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_ADDI, 0, get_instruction_mnemonic(ID_C_ADDI));
+  if (IS64BITTARGET)
+    NID_C_ADDIW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_ADDIW, 0, get_instruction_mnemonic(ID_C_ADDIW));
+  else
+    NID_C_ADDIW = NID_DISABLED;
+  NID_C_ADDI16SP = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_ADDI16SP, 0, get_instruction_mnemonic(ID_C_ADDI16SP));
+
+  NID_C_ADDI4SPN = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_ADDI4SPN, 0, get_instruction_mnemonic(ID_C_ADDI4SPN));
+
+  NID_C_ANDI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_ANDI, 0, get_instruction_mnemonic(ID_C_ANDI));
+
+  NID_C_SLLI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SLLI, 0, get_instruction_mnemonic(ID_C_SLLI));
+  NID_C_SRLI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SRLI, 0, get_instruction_mnemonic(ID_C_SRLI));
+  NID_C_SRAI = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SRAI, 0, get_instruction_mnemonic(ID_C_SRAI));
+
+  NID_C_MV  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_MV, 0, get_instruction_mnemonic(ID_C_MV));
+  NID_C_ADD = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_ADD, 0, get_instruction_mnemonic(ID_C_ADD));
+
+  NID_C_SUB = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SUB, 0, get_instruction_mnemonic(ID_C_SUB));
+  NID_C_XOR = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_XOR, 0, get_instruction_mnemonic(ID_C_XOR));
+  NID_C_OR  = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_OR, 0, get_instruction_mnemonic(ID_C_OR));
+  NID_C_AND = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_AND, 0, get_instruction_mnemonic(ID_C_AND));
+
+  if (IS64BITTARGET) {
+    NID_C_ADDW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_ADDW, 0, get_instruction_mnemonic(ID_C_ADDW));
+    NID_C_SUBW = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SUBW, 0, get_instruction_mnemonic(ID_C_SUBW));
   } else {
-    NID_C_LI  = NID_FALSE;
-    NID_C_LUI = NID_FALSE;
-
-    NID_C_ADDI     = NID_FALSE;
-    NID_C_ADDIW    = NID_FALSE;
-    NID_C_ADDI16SP = NID_FALSE;
-
-    NID_C_ADDI4SPN = NID_FALSE;
-
-    NID_C_ANDI = NID_FALSE;
-
-    NID_C_SLLI = NID_FALSE;
-    NID_C_SRLI = NID_FALSE;
-    NID_C_SRAI = NID_FALSE;
-
-    NID_C_MV   = NID_FALSE;
-    NID_C_ADD  = NID_FALSE;
-
-    NID_C_SUB  = NID_FALSE;
-    NID_C_XOR  = NID_FALSE;
-    NID_C_OR   = NID_FALSE;
-    NID_C_AND  = NID_FALSE;
-
-    NID_C_ADDW = NID_FALSE;
-    NID_C_SUBW = NID_FALSE;
-
-    NID_C_LWSP = NID_FALSE;
-    NID_C_LW   = NID_FALSE;
-
-    NID_C_LDSP = NID_FALSE;
-    NID_C_LD   = NID_FALSE;
-
-    NID_C_SWSP = NID_FALSE;
-    NID_C_SW   = NID_FALSE;
-
-    NID_C_SDSP = NID_FALSE;
-    NID_C_SD   = NID_FALSE;
-
-    NID_C_BEQZ = NID_FALSE;
-    NID_C_BNEZ = NID_FALSE;
-
-    NID_C_J   = NID_FALSE;
-    NID_C_JAL = NID_FALSE;
-
-    NID_C_JR   = NID_FALSE;
-    NID_C_JALR = NID_FALSE;
+    NID_C_ADDW = NID_DISABLED;
+    NID_C_SUBW = NID_DISABLED;
   }
+
+  NID_C_LWSP = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_LWSP, 0, get_instruction_mnemonic(ID_C_LWSP));
+  NID_C_LW   = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_LW, 0, get_instruction_mnemonic(ID_C_LW));
+
+  NID_C_SWSP = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SWSP, 0, get_instruction_mnemonic(ID_C_SWSP));
+  NID_C_SW   = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SW, 0, get_instruction_mnemonic(ID_C_SW));
+
+  if (IS64BITTARGET) {
+    NID_C_LDSP = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_LDSP, 0, get_instruction_mnemonic(ID_C_LDSP));
+    NID_C_LD   = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_LD, 0, get_instruction_mnemonic(ID_C_LD));
+
+    NID_C_SDSP = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SDSP, 0, get_instruction_mnemonic(ID_C_SDSP));
+    NID_C_SD   = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_SD, 0, get_instruction_mnemonic(ID_C_SD));
+  } else {
+    NID_C_LDSP = NID_DISABLED;
+    NID_C_LD   = NID_DISABLED;
+
+    NID_C_SDSP = NID_DISABLED;
+    NID_C_SD   = NID_DISABLED;
+  }
+
+  NID_C_BEQZ = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_BEQZ, 0, get_instruction_mnemonic(ID_C_BEQZ));
+  NID_C_BNEZ = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_BNEZ, 0, get_instruction_mnemonic(ID_C_BNEZ));
+
+  NID_C_J = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_J, 0, get_instruction_mnemonic(ID_C_J));
+  if (IS64BITTARGET)
+    NID_C_JAL = NID_DISABLED;
+  else
+    NID_C_JAL = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_JAL, 0, get_instruction_mnemonic(ID_C_JAL));
+
+  NID_C_JR   = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_JR, 0, get_instruction_mnemonic(ID_C_JR));
+  NID_C_JALR = new_constant(OP_CONSTD, SID_INSTRUCTION_ID, ID_C_JALR, 0, get_instruction_mnemonic(ID_C_JALR));
+}
+
+void init_decoders(uint64_t number_of_cores) {
+  eval_instruction_ID_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
 }
 
 // -----------------------------------------------------------------
 // ----------------------------- CORE ------------------------------
 // -----------------------------------------------------------------
 
+uint64_t* get_for(uint64_t core, uint64_t* lines)            { return (uint64_t*) *(lines + core); }
+void set_for(uint64_t core, uint64_t* lines, uint64_t* line) { *(lines + core) = (uint64_t) line; }
+
 void new_core_state(uint64_t core);
 void print_core_state(uint64_t core);
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
-uint64_t CORES = 1; // number of cores
+uint64_t number_of_cores = 1; // number of cores
 
 uint64_t SYNCHRONIZED_PC = 0; // flag for synchronized program counters across cores
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
-uint64_t* eval_core_ir_nid   = (uint64_t*) 0;
-uint64_t* eval_core_c_ir_nid = (uint64_t*) 0;
+uint64_t* eval_ir_nid   = (uint64_t*) 0;
+uint64_t* eval_c_ir_nid = (uint64_t*) 0;
 
-uint64_t* initial_core_pc_nid = (uint64_t*) 0;
+uint64_t* eval_ir_nids   = (uint64_t*) 0;
+uint64_t* eval_c_ir_nids = (uint64_t*) 0;
 
-uint64_t* state_core_pc_nid = (uint64_t*) 0;
-uint64_t* init_core_pc_nid  = (uint64_t*) 0;
-uint64_t* next_core_pc_nid  = (uint64_t*) 0;
+uint64_t* initial_pc_nid = (uint64_t*) 0;
 
-uint64_t* eval_core_control_flow_nid = (uint64_t*) 0;
+uint64_t* state_pc_nid = (uint64_t*) 0;
+uint64_t* init_pc_nid  = (uint64_t*) 0;
+uint64_t* next_pc_nid  = (uint64_t*) 0;
 
-uint64_t* eval_core_instruction_control_flow_nid            = (uint64_t*) 0;
-uint64_t* eval_core_compressed_instruction_control_flow_nid = (uint64_t*) 0;
+uint64_t* state_pc_nids = (uint64_t*) 0;
+uint64_t* next_pc_nids  = (uint64_t*) 0;
+uint64_t* sync_pc_nids  = (uint64_t*) 0;
+
+uint64_t* eval_control_flow_nid = (uint64_t*) 0;
+
+uint64_t* eval_instruction_control_flow_nid            = (uint64_t*) 0;
+uint64_t* eval_compressed_instruction_control_flow_nid = (uint64_t*) 0;
 
 uint64_t* eval_core_0_control_flow_nid = (uint64_t*) 0;
+
+// ------------------------- INITIALIZATION ------------------------
+
+void init_cores(uint64_t number_of_cores) {
+  eval_ir_nids   = zmalloc(number_of_cores * sizeof(uint64_t*));
+  eval_c_ir_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+
+  state_pc_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+  next_pc_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+  sync_pc_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+}
 
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
 // -----------------------------------------------------------------
@@ -2333,37 +2838,46 @@ void kernel_sequential(uint64_t core,
   uint64_t* ir_nid, uint64_t* register_file_nid);
 void kernel_properties(uint64_t core, uint64_t* ir_nid, uint64_t* read_bytes_nid, uint64_t* register_file_nid);
 
-void rotor_combinational(uint64_t* pc_nid, uint64_t* code_segment_nid, uint64_t* register_file_nid, uint64_t* memory_nid);
+void rotor_combinational(uint64_t core, uint64_t* pc_nid, uint64_t* code_segment_nid, uint64_t* register_file_nid, uint64_t* memory_nid);
 void rotor_sequential(uint64_t core, uint64_t* pc_nid, uint64_t* register_file_nid, uint64_t* memory_nid,
   uint64_t* control_flow_nid, uint64_t* register_data_flow_nid, uint64_t* memory_data_flow_nid);
 void rotor_properties(uint64_t core, uint64_t* ir_nid, uint64_t* c_ir_nid,
-  uint64_t* known_instructions_nid, uint64_t* known_compressed_instructions_nid,
-  uint64_t* control_flow_nid, uint64_t* register_file_nid);
+  uint64_t* instruction_ID_nids, uint64_t* control_flow_nid, uint64_t* register_file_nid);
 
-void rotor();
+void load_binary(uint64_t binary);
 
-uint64_t selfie_model();
+void model_rotor();
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
-uint64_t CODE_LOADED = 0; // flag for indicating if code is loaded
-uint64_t SYNTHESIZE  = 0; // flag for synthesizing versus analyzing code
+uint64_t number_of_binaries = 0; // number of loaded binaries
 
-char* exit_code_check_option         = (char*) 0;
+char* bad_exit_code_check_option = (char*) 0;
+char* exit_codes_check_option    = (char*) 0;
+
 char* division_by_zero_check_option  = (char*) 0;
 char* division_overflow_check_option = (char*) 0;
-char* seg_faults_check_option        = (char*) 0;
 
-char* cores_option           = (char*) 0;
-char* heap_allowance_option  = (char*) 0;
-char* stack_allowance_option = (char*) 0;
+char* seg_faults_check_option = (char*) 0;
 
-uint64_t check_exit_code         = 1;
+char* cores_option                 = (char*) 0;
+char* virtual_address_space_option = (char*) 0;
+char* code_word_size_option        = (char*) 0;
+char* memory_word_size_option      = (char*) 0;
+char* heap_allowance_option        = (char*) 0;
+char* stack_allowance_option       = (char*) 0;
+
+uint64_t evaluate_model    = 1;
+uint64_t output_assembly   = 0;
+uint64_t disassemble_model = 0;
+
+uint64_t check_bad_exit_code = 1;
+uint64_t check_exit_codes    = 1;
+
 uint64_t check_division_by_zero  = 1;
 uint64_t check_division_overflow = 1;
-uint64_t check_seg_faults        = 1;
 
-uint64_t exclude_a0_from_rd = 0;
+uint64_t check_seg_faults = 1;
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
@@ -2374,46 +2888,142 @@ uint64_t w = 0; // number of written characters
 
 uint64_t bad_exit_code = 0; // model for this exit code
 
-uint64_t* prop_is_instruction_known_nid           = (uint64_t*) 0;
-uint64_t* prop_illegal_instruction_nid            = (uint64_t*) 0;
-uint64_t* prop_illegal_compressed_instruction_nid = (uint64_t*) 0;
-uint64_t* prop_next_fetch_unaligned_nid           = (uint64_t*) 0;
-uint64_t* prop_next_fetch_seg_faulting_nid        = (uint64_t*) 0;
+uint64_t* prop_is_instruction_known_nids           = (uint64_t*) 0;
+uint64_t* prop_illegal_instruction_nids            = (uint64_t*) 0;
+uint64_t* prop_illegal_compressed_instruction_nids = (uint64_t*) 0;
+uint64_t* prop_next_fetch_unaligned_nids           = (uint64_t*) 0;
+uint64_t* prop_next_fetch_seg_faulting_nids        = (uint64_t*) 0;
 
-uint64_t* prop_is_syscall_id_known_nid = (uint64_t*) 0;
+uint64_t* prop_is_syscall_id_known_nids = (uint64_t*) 0;
 
-uint64_t* prop_bad_exit_code_nid            = (uint64_t*) 0;
-uint64_t* prop_exclude_a0_from_rd_nid       = (uint64_t*) 0;
-uint64_t* prop_division_by_zero_nid         = (uint64_t*) 0;
-uint64_t* prop_signed_division_overflow_nid = (uint64_t*) 0;
+uint64_t* prop_bad_exit_code_nid  = (uint64_t*) 0;
+uint64_t* prop_bad_exit_code_nids = (uint64_t*) 0;
 
-uint64_t* prop_load_seg_faulting_nid             = (uint64_t*) 0;
-uint64_t* prop_store_seg_faulting_nid            = (uint64_t*) 0;
-uint64_t* prop_compressed_load_seg_faulting_nid  = (uint64_t*) 0;
-uint64_t* prop_compressed_store_seg_faulting_nid = (uint64_t*) 0;
-uint64_t* prop_stack_seg_faulting_nid            = (uint64_t*) 0;
+uint64_t* prop_active_exits_nid           = (uint64_t*) 0;
+uint64_t* prop_previous_core_a0_value_nid = (uint64_t*) 0;
 
-uint64_t* prop_brk_seg_faulting_nid    = (uint64_t*) 0;
-uint64_t* prop_openat_seg_faulting_nid = (uint64_t*) 0;
-uint64_t* prop_read_seg_faulting_nid   = (uint64_t*) 0;
-uint64_t* prop_write_seg_faulting_nid  = (uint64_t*) 0;
+uint64_t* prop_exit_codes_nid       = (uint64_t*) 0;
+uint64_t* prop_all_cores_exited_nid = (uint64_t*) 0;
+
+uint64_t are_exit_codes_different = 0;
+
+uint64_t* prop_division_by_zero_nids         = (uint64_t*) 0;
+uint64_t* prop_signed_division_overflow_nids = (uint64_t*) 0;
+
+uint64_t* prop_load_seg_faulting_nids             = (uint64_t*) 0;
+uint64_t* prop_store_seg_faulting_nids            = (uint64_t*) 0;
+uint64_t* prop_compressed_load_seg_faulting_nids  = (uint64_t*) 0;
+uint64_t* prop_compressed_store_seg_faulting_nids = (uint64_t*) 0;
+uint64_t* prop_stack_seg_faulting_nids            = (uint64_t*) 0;
+
+uint64_t* prop_brk_seg_faulting_nids    = (uint64_t*) 0;
+uint64_t* prop_openat_seg_faulting_nids = (uint64_t*) 0;
+uint64_t* prop_read_seg_faulting_nids   = (uint64_t*) 0;
+uint64_t* prop_write_seg_faulting_nids  = (uint64_t*) 0;
 
 // ------------------------- INITIALIZATION ------------------------
 
-void init_model_generator() {
-  init_model();
+void init_properties(uint64_t number_of_cores) {
+  prop_is_instruction_known_nids           = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_illegal_instruction_nids            = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_illegal_compressed_instruction_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_next_fetch_unaligned_nids           = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_next_fetch_seg_faulting_nids        = zmalloc(number_of_cores * sizeof(uint64_t*));
 
-  init_interface_sorts();
-  init_interface_kernel();
+  prop_is_syscall_id_known_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
 
-  init_register_file_sorts();
+  prop_bad_exit_code_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
 
-  if (IS64BITTARGET)
-    init_memory_sorts(SINGLEWORDSIZEINBITS, SID_SINGLE_WORD, SID_DOUBLE_WORD);
-  else
-    init_memory_sorts(SINGLEWORDSIZEINBITS, SID_SINGLE_WORD, SID_SINGLE_WORD);
+  prop_division_by_zero_nids         = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_signed_division_overflow_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
 
-  init_instruction_sorts();
+  prop_load_seg_faulting_nids             = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_store_seg_faulting_nids            = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_compressed_load_seg_faulting_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_compressed_store_seg_faulting_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_stack_seg_faulting_nids            = zmalloc(number_of_cores * sizeof(uint64_t*));
+
+  prop_brk_seg_faulting_nids    = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_openat_seg_faulting_nids = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_read_seg_faulting_nids   = zmalloc(number_of_cores * sizeof(uint64_t*));
+  prop_write_seg_faulting_nids  = zmalloc(number_of_cores * sizeof(uint64_t*));
+}
+
+// -----------------------------------------------------------------
+// ---------------------------- EMULATOR ---------------------------
+// -----------------------------------------------------------------
+
+void save_binary(uint64_t binary);
+void restore_binary(uint64_t binary);
+
+void print_assembly(uint64_t core);
+void print_multicore_assembly();
+
+uint64_t eval_properties(uint64_t core);
+uint64_t eval_multicore_properties();
+
+uint64_t eval_sequential(uint64_t core);
+uint64_t eval_multicore_sequential();
+
+void apply_sequential(uint64_t core);
+void apply_multicore_sequential();
+
+void save_states(uint64_t core);
+void save_multicore_states();
+
+void restore_states(uint64_t core);
+void restore_multicore_states();
+
+void eval_multicore_states();
+
+void eval_rotor();
+
+void disassemble_rotor(uint64_t core);
+
+uint64_t rotor_arguments();
+
+uint64_t selfie_model();
+
+// ------------------------ GLOBAL CONSTANTS -----------------------
+
+uint64_t MAX_BINARIES = 3;
+
+// ------------------------ GLOBAL VARIABLES -----------------------
+
+uint64_t* binary_names = (uint64_t*) 0;
+
+uint64_t* e_entries = (uint64_t*) 0;
+
+uint64_t* code_binaries = (uint64_t*) 0;
+uint64_t* data_binaries = (uint64_t*) 0;
+
+uint64_t* code_starts = (uint64_t*) 0;
+uint64_t* code_sizes  = (uint64_t*) 0;
+uint64_t* data_starts = (uint64_t*) 0;
+uint64_t* data_sizes  = (uint64_t*) 0;
+
+uint64_t max_code_size = 0;
+
+uint64_t min_steps = -1;
+uint64_t max_steps = 0;
+
+uint64_t min_input = 0;
+uint64_t max_input = 0;
+
+// ------------------------- INITIALIZATION ------------------------
+
+void init_binaries() {
+  binary_names = smalloc(MAX_BINARIES * sizeof(char*));
+
+  e_entries = smalloc(MAX_BINARIES * sizeof(uint64_t*));
+
+  code_binaries = smalloc(MAX_BINARIES * sizeof(uint64_t*));
+  data_binaries = smalloc(MAX_BINARIES * sizeof(uint64_t*));
+
+  code_starts = smalloc(MAX_BINARIES * sizeof(uint64_t*));
+  code_sizes  = smalloc(MAX_BINARIES * sizeof(uint64_t*));
+  data_starts = smalloc(MAX_BINARIES * sizeof(uint64_t*));
+  data_sizes  = smalloc(MAX_BINARIES * sizeof(uint64_t*));
 }
 
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
@@ -2469,13 +3079,15 @@ uint64_t* new_line(char* op, uint64_t* sid, uint64_t* arg1, uint64_t* arg2, uint
   set_arg3(new_line, arg3);
   set_comment(new_line, comment);
   set_state(new_line, 0);
-  set_step(new_line, -1);
+  set_step(new_line, UNINITIALIZED);
   set_reuse(new_line, 0);
+  set_pred(new_line, UNUSED);
+  set_succ(new_line, UNUSED);
 
   if (reuse_lines)
     old_line = find_equal_line(new_line);
   else
-    old_line = (uint64_t*) 0;
+    old_line = UNUSED;
 
   if (old_line) {
     unused_line = new_line;
@@ -2544,6 +3156,14 @@ uint64_t* new_ternary(char* op, uint64_t* sid, uint64_t* first_nid, uint64_t* se
   return new_line(op, sid, first_nid, second_nid, third_nid, comment);
 }
 
+uint64_t* new_init(uint64_t* sid, uint64_t* state_nid, uint64_t* value_nid, char* comment) {
+  return new_binary(OP_INIT, sid, state_nid, value_nid, comment);
+}
+
+uint64_t* new_next(uint64_t* sid, uint64_t* state_nid, uint64_t* value_nid, char* comment) {
+  return new_binary(OP_NEXT, sid, state_nid, value_nid, comment);
+}
+
 uint64_t* new_property(char* op, uint64_t* condition_nid, char* symbol, char* comment) {
   return new_line(op, UNUSED, condition_nid, (uint64_t*) symbol, UNUSED, comment);
 }
@@ -2552,22 +3172,63 @@ uint64_t* new_property(char* op, uint64_t* condition_nid, char* symbol, char* co
 // ---------------------------- SYNTAX -----------------------------
 // -----------------------------------------------------------------
 
+uint64_t is_bitvector(uint64_t* line) {
+  return (char*) get_arg1(line) == BITVEC;
+}
+
+uint64_t is_array(uint64_t* line) {
+  return (char*) get_arg1(line) == ARRAY;
+}
+
+uint64_t is_constant_op(char* op) {
+  if (op == OP_CONSTD)
+    return 1;
+  else if (op == OP_CONST)
+    return 1;
+  else if (op == OP_CONSTH)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_input_op(char* op) {
+  if (op == OP_INPUT)
+    return 1;
+  else if (op == OP_STATE)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_unary_op(char* op) {
+  if (op == OP_NOT)
+    return 1;
+  else if (op == OP_INC)
+    return 1;
+  else if (op == OP_DEC)
+    return 1;
+  else if (op == OP_NEG)
+    return 1;
+  else
+    return 0;
+}
+
 void print_nid(uint64_t nid, uint64_t* line) {
   set_nid(line, nid);
   w = w + dprintf(output_fd, "%lu", nid);
 }
 
 uint64_t print_sort(uint64_t nid, uint64_t* line) {
-  if ((char*) get_arg1(line) == ARRAY) {
+  if (is_array(line)) {
     nid = print_referenced_line(nid, get_arg2(line));
     nid = print_referenced_line(nid, get_arg3(line));
   }
   print_nid(nid, line);
   w = w + dprintf(output_fd, " %s", OP_SORT);
-  if ((char*) get_arg1(line) == BITVEC)
+  if (is_bitvector(line))
     w = w + dprintf(output_fd, " %s %lu", BITVEC, eval_bitvec_size(line));
   else
-    // assert: theory of bitvector arrays
+    // assert: array
     w = w + dprintf(output_fd, " %s %lu %lu", ARRAY, get_nid(get_arg2(line)), get_nid(get_arg3(line)));
   return nid;
 }
@@ -2667,39 +3328,6 @@ void print_comment(uint64_t* line) {
   w = w + dprintf(output_fd, "\n");
 }
 
-uint64_t is_constant_op(char* op) {
-  if (op == OP_CONSTD)
-    return 1;
-  else if (op == OP_CONST)
-    return 1;
-  else if (op == OP_CONSTH)
-    return 1;
-  else
-    return 0;
-}
-
-uint64_t is_input_op(char* op) {
-  if (op == OP_INPUT)
-    return 1;
-  else if (op == OP_STATE)
-    return 1;
-  else
-    return 0;
-}
-
-uint64_t is_unary_op(char* op) {
-  if (op == OP_NOT)
-    return 1;
-  else if (op == OP_INC)
-    return 1;
-  else if (op == OP_DEC)
-    return 1;
-  else if (op == OP_NEG)
-    return 1;
-  else
-    return 0;
-}
-
 uint64_t print_referenced_line(uint64_t nid, uint64_t* line) {
   char* op;
 
@@ -2744,6 +3372,10 @@ void print_line(uint64_t* line) {
     current_nid = print_referenced_line(current_nid, line);
 }
 
+void print_line_for(uint64_t core, uint64_t* lines) {
+  print_line(get_for(core, lines));
+}
+
 void print_break() {
   uint64_t remainder;
 
@@ -2771,14 +3403,30 @@ void print_break_line(uint64_t* line) {
   }
 }
 
+void print_break_line_for(uint64_t core, uint64_t* lines) {
+  print_break_line(get_for(core, lines));
+}
+
 void print_break_comment(char* comment) {
   print_break();
   w = w + dprintf(output_fd, "; %s\n\n", comment);
 }
 
+void print_break_comment_for(uint64_t core, char* comment) {
+  print_break();
+  w = w + dprintf(output_fd, "; core-%lu %s\n\n", core, comment);
+}
+
 void print_break_comment_line(char* comment, uint64_t* line) {
   if (line != UNUSED) {
     print_break_comment(comment);
+    print_line(line);
+  }
+}
+
+void print_break_comment_line_for(uint64_t core, char* comment, uint64_t* line) {
+  if (line != UNUSED) {
+    print_break_comment_for(core, comment);
     print_line(line);
   }
 }
@@ -2819,7 +3467,7 @@ char* format_comment_binary(char* comment, uint64_t value) {
 uint64_t eval_bitvec_size(uint64_t* line) {
   uint64_t size;
 
-  if ((char*) get_arg1(line) == BITVEC) {
+  if (is_bitvector(line)) {
     size = (uint64_t) get_arg2(line);
 
     if (size > 0)
@@ -2837,7 +3485,7 @@ uint64_t eval_bitvec_size(uint64_t* line) {
   exit(EXITCODE_SYSTEMERROR);
 }
 
-void fit_bitvec_sort(uint64_t value, uint64_t* sid) {
+void fit_bitvec_sort(uint64_t* sid, uint64_t value) {
   uint64_t size;
 
   size = eval_bitvec_size(sid);
@@ -2853,7 +3501,7 @@ void fit_bitvec_sort(uint64_t value, uint64_t* sid) {
   exit(EXITCODE_SYSTEMERROR);
 }
 
-void signed_fit_bitvec_sort(uint64_t value, uint64_t* sid) {
+void signed_fit_bitvec_sort(uint64_t* sid, uint64_t value) {
   uint64_t size;
 
   size = eval_bitvec_size(sid);
@@ -2861,38 +3509,48 @@ void signed_fit_bitvec_sort(uint64_t value, uint64_t* sid) {
   if (size >= SIZEOFUINT64INBITS)
     // TODO: support of bitvectors larger than machine words
     return;
-  else if (value < two_to_the_power_of(size - 1))
-    return;
-  else if (value >= -two_to_the_power_of(size - 1))
+  else if (is_signed_integer(value, size))
     return;
 
-  printf("%s: %ld does not fit %lu-bit bitvector\n", selfie_name, value, size);
-
-  exit(EXITCODE_SYSTEMERROR);
+  fit_bitvec_sort(sid, value);
 }
 
 uint64_t eval_array_size(uint64_t* line) {
-  if ((char*) get_arg1(line) == ARRAY)
-    return eval_bitvec_size(get_arg2(line));
+  uint64_t size;
 
-  printf("%s: evaluate size of non-array error\n", selfie_name);
+  if (is_array(line)) {
+    size = eval_bitvec_size(get_arg2(line));
 
-  exit(EXITCODE_SYSTEMERROR);
-}
+    if (size <= VIRTUAL_ADDRESS_SPACE)
+      return size;
 
-uint64_t eval_array_element_size(uint64_t* line) {
-  if ((char*) get_arg1(line) == ARRAY)
-    return eval_bitvec_size(get_arg3(line));
-
-  printf("%s: evaluate element size of non-array error\n", selfie_name);
+    printf("%s: unsupported %lu-bit array size error\n", selfie_name, size);
+  } else
+    printf("%s: evaluate array size of non-array error\n", selfie_name);
 
   exit(EXITCODE_SYSTEMERROR);
 }
 
-void fit_array_sort(uint64_t index, uint64_t value, uint64_t* sid) {
-  if ((char*) get_arg1(sid) == ARRAY) {
-    fit_bitvec_sort(index, get_arg2(sid));
-    fit_bitvec_sort(value, get_arg3(sid));
+uint64_t eval_element_size(uint64_t* line) {
+  uint64_t size;
+
+  if (is_array(line)) {
+    size = eval_bitvec_size(get_arg3(line));
+
+    if (size <= SIZEOFUINT64INBITS)
+      return size;
+
+    printf("%s: unsupported %lu-bit array element size error\n", selfie_name, size);
+  } else
+    printf("%s: evaluate element size of non-array error\n", selfie_name);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+void fit_array_sorts(uint64_t* array_sid, uint64_t index, uint64_t value) {
+  if (is_array(array_sid)) {
+    fit_bitvec_sort(get_arg2(array_sid), index);
+    fit_bitvec_sort(get_arg3(array_sid), value);
 
     return;
   }
@@ -2911,20 +3569,302 @@ void match_sorts(uint64_t* sid1, uint64_t* sid2, char* comment) {
   exit(EXITCODE_SYSTEMERROR);
 }
 
-void write_value(uint64_t index, uint64_t value, uint64_t* array_nid) {
+void match_array_sorts(uint64_t* array_sid, uint64_t* index_sid, uint64_t* value_sid) {
+  match_sorts(get_arg2(array_sid), index_sid, "array size");
+  match_sorts(get_arg3(array_sid), value_sid, "array element");
+}
+
+uint64_t calculate_address_space(uint64_t number_of_bytes, uint64_t word_size) {
+  uint64_t size_in_words;
+  uint64_t address_space;
+
+  // assert: word size is a power of 2 >= 8 bits
+
+  size_in_words = number_of_bytes / get_power_of_two_size_in_bytes(word_size);
+
+  if (number_of_bytes % get_power_of_two_size_in_bytes(word_size) > 0)
+    size_in_words = size_in_words + 1;
+
+  address_space = log_two(size_in_words);
+
+  if (size_in_words > two_to_the_power_of(address_space))
+    address_space = address_space + 1;
+
+  return address_space;
+}
+
+uint64_t* allocate_array(uint64_t* sid) {
+  uint64_t array_size;
+  uint64_t element_size;
+  uint64_t* arrays;
+
+  array_size   = eval_array_size(sid);
+  element_size = eval_element_size(sid);
+
+  // assert: element size of array <= sizeof(uint64_t)
+
+  if (sid != SID_MEMORY_STATE)
+    // assert: register files and code segments
+    return zmalloc(two_to_the_power_of(array_size) * sizeof(uint64_t));
+  else {
+    arrays = smalloc(3 * sizeof(uint64_t*));
+
+    set_data_array(arrays,
+      zmalloc(two_to_the_power_of(calculate_address_space(data_size, element_size)) * sizeof(uint64_t)));
+    set_heap_array(arrays,
+      zmalloc(two_to_the_power_of(calculate_address_space(heap_size, element_size)) * sizeof(uint64_t)));
+    set_stack_array(arrays,
+      zmalloc(two_to_the_power_of(calculate_address_space(stack_size, element_size)) * sizeof(uint64_t)));
+
+    return arrays;
+  }
+}
+
+uint64_t is_virtual_address_in_segment(uint64_t vaddr, uint64_t start, uint64_t end) {
+  if (vaddr >= start)
+    if (vaddr < end)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_virtual_address_in_data_segment(uint64_t vaddr) {
+  return is_virtual_address_in_segment(vaddr, data_start, data_start + data_size);
+}
+
+uint64_t is_virtual_address_in_heap_segment(uint64_t vaddr) {
+  return is_virtual_address_in_segment(vaddr, heap_start, heap_start + heap_size);
+}
+
+uint64_t is_virtual_address_in_stack_segment(uint64_t vaddr) {
+  if (stack_start < stack_start + stack_size)
+    return is_virtual_address_in_segment(vaddr, stack_start, stack_start + stack_size);
+  else if (vaddr >= stack_start)
+    // assert: stack_start + stack_size == 0
+    return 1;
+
+  return 0;
+}
+
+uint64_t vaddr_to_index(uint64_t vaddr) {
+  return right_shift(vaddr,
+    log_two(get_power_of_two_size_in_bytes(eval_element_size(SID_MEMORY_STATE))));
+}
+
+uint64_t index_to_vaddr(uint64_t index) {
+  return left_shift(index,
+    log_two(get_power_of_two_size_in_bytes(eval_element_size(SID_MEMORY_STATE))));
+}
+
+uint64_t read_or_write(uint64_t* state_nid, uint64_t index, uint64_t value, uint64_t read) {
   uint64_t* array;
+  uint64_t vaddr;
 
-  fit_array_sort(index, value, get_sid(array_nid));
+  fit_array_sorts(get_sid(state_nid), index, value);
 
-  array = (uint64_t*) get_state(array_nid);
+  array = (uint64_t*) get_state(state_nid);
 
   if (array != (uint64_t*) 0) {
-    *(array + index) = value;
+    if (get_sid(state_nid) == SID_MEMORY_STATE) {
+      vaddr = index_to_vaddr(index);
 
-    return;
+      if (is_virtual_address_in_data_segment(vaddr)) {
+        index = vaddr_to_index(vaddr - data_start);
+        array = get_data_array(array);
+      } else if (is_virtual_address_in_heap_segment(vaddr)) {
+        index = vaddr_to_index(vaddr - heap_start);
+        array = get_heap_array(array);
+      } else if (is_virtual_address_in_stack_segment(vaddr)) {
+        index = vaddr_to_index(vaddr - stack_start);
+        array = get_stack_array(array);
+      } else {
+        printf("%s: segmentation fault with index %lu @ 0x%lX\n", selfie_name, index, vaddr);
+
+        exit(EXITCODE_SYSTEMERROR);
+      }
+    }
+
+    if (read)
+      value = *(array + index);
+    else
+      // TODO: log writes and only apply with init and next
+      *(array + index) = value;
+
+    return value;
   }
 
-  printf("%s: write uninitialized array error\n", selfie_name);
+  printf("%s: uninitialized state access error\n", selfie_name);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+uint64_t is_comparison_operator(char* op) {
+  if (op == OP_EQ)
+    return 1;
+  else if (op == OP_NEQ)
+    return 1;
+  else if (op == OP_SGT)
+    return 1;
+  else if (op == OP_UGT)
+    return 1;
+  else if (op == OP_SGTE)
+    return 1;
+  else if (op == OP_UGTE)
+    return 1;
+  else if (op == OP_SLT)
+    return 1;
+  else if (op == OP_ULT)
+    return 1;
+  else if (op == OP_SLTE)
+    return 1;
+  else if (op == OP_ULTE)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_bitwise_operator(char* op) {
+  if (op == OP_AND)
+    return 1;
+  else if (op == OP_OR)
+    return 1;
+  else if (op == OP_XOR)
+    return 1;
+  else if (op == OP_SLL)
+    return 1;
+  else if (op == OP_SRL)
+    return 1;
+  else if (op == OP_SRA)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_arithmetic_operator(char* op) {
+  if (op == OP_ADD)
+    return 1;
+  else if (op == OP_SUB)
+    return 1;
+  else if (op == OP_MUL)
+    return 1;
+  else if (op == OP_SDIV)
+    return 1;
+  else if (op == OP_UDIV)
+    return 1;
+  else if (op == OP_SREM)
+    return 1;
+  else if (op == OP_UREM)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_binary_operator(char* op) {
+  if (op == OP_IMPLIES)
+    return 1;
+  else if (is_comparison_operator(op))
+    return 1;
+  else if (is_bitwise_operator(op))
+    return 1;
+  else if (is_arithmetic_operator(op))
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t bitwise(uint64_t a, uint64_t b, uint64_t and_xor, uint64_t or_xor) {
+  uint64_t r;
+  uint64_t i;
+
+  if (a == b)
+    return a;
+  else if (a < b)
+    r = b;
+  else {
+    r = a;
+
+    a = b;
+    b = r;
+  }
+
+  // assert: a < b and r == b
+
+  i = 0;
+
+  while (i < SIZEOFUINT64INBITS) {
+    if (a == 0) {
+      if (or_xor)
+        return r;
+      else
+        return r % two_to_the_power_of(i);
+    }
+
+    if (a % 2 == or_xor) {
+      if (b % 2)
+        r = r - and_xor * two_to_the_power_of(i);
+      else
+        r = r + or_xor * two_to_the_power_of(i);
+    }
+
+    a = a / 2;
+    b = b / 2;
+
+    i = i + 1;
+  }
+
+  return r;
+}
+
+uint64_t bitwise_and(uint64_t a, uint64_t b) {
+  return bitwise(a, b, 1, 0);
+}
+
+uint64_t bitwise_or(uint64_t a, uint64_t b) {
+  return bitwise(a, b, 0, 1);
+}
+
+uint64_t bitwise_xor(uint64_t a, uint64_t b) {
+  return bitwise(a, b, 1, 1);
+}
+
+uint64_t arithmetic_right_shift(uint64_t n, uint64_t b, uint64_t size) {
+  if (b < size)
+    return sign_shrink(sign_extend(right_shift(n, b), size - b), size);
+  else if (signed_less_than(sign_extend(n, size), 0))
+    return sign_shrink(-1, size);
+  else
+    return 0;
+}
+
+uint64_t signed_less_than_or_equal_to(uint64_t a, uint64_t b) {
+  if (a == b)
+    return 1;
+  else
+    return signed_less_than(a, b);
+}
+
+uint64_t get_cached_state(uint64_t* line) {
+  if (get_step(line) != UNINITIALIZED) {
+    if (get_op(line) == OP_STATE) {
+      if (get_step(line) >= current_step) {
+        if (is_bitvector(get_sid(line))) {
+          if (get_step(line) == current_step)
+            return get_state(line);
+        } else {
+          // assert: array
+          if (get_step(line) <= next_step)
+            // TODO: log writes and only apply with init and next
+            return (uint64_t) line;
+        }
+      }
+
+      printf("%s: non-current state access\n", selfie_name);
+    } else if (get_step(line) == next_step)
+      return get_state(line);
+    else
+      printf("%s: cache miss\n", selfie_name);
+  } else
+    printf("%s: uninitialized state or cache access\n", selfie_name);
 
   exit(EXITCODE_SYSTEMERROR);
 }
@@ -2933,26 +3873,22 @@ uint64_t eval_constant_value(uint64_t* line) {
   uint64_t* sid;
   uint64_t value;
 
-  if (get_step(line) == (uint64_t) -1) {
+  if (get_step(line) == UNINITIALIZED) {
     sid   = get_sid(line);
     value = (uint64_t) get_arg1(line);
 
     if (get_op(line) == OP_CONSTD) {
-      if (value <= 1)
-        fit_bitvec_sort(value, sid);
-      else {
-        signed_fit_bitvec_sort(value, sid);
+      signed_fit_bitvec_sort(sid, value);
 
-        value = sign_shrink(value, eval_bitvec_size(sid));
-      }
+      value = sign_shrink(value, eval_bitvec_size(sid));
     } else
-      fit_bitvec_sort(value, sid);
+      fit_bitvec_sort(sid, value);
 
     set_state(line, value);
   } else
     value = get_state(line);
 
-  set_step(line, current_step);
+  set_step(line, next_step);
 
   return value;
 }
@@ -2973,14 +3909,6 @@ uint64_t eval_slice_l(uint64_t* line) {
   return (uint64_t) get_arg3(line);
 }
 
-uint64_t get_cached_state(uint64_t* line) {
-  if (get_op(line) == OP_STATE)
-    if ((char*) get_arg1(get_sid(line)) == ARRAY)
-      return (uint64_t) line;
-
-  return get_state(line);
-}
-
 uint64_t eval_input(uint64_t* line) {
   char* op;
 
@@ -2988,8 +3916,24 @@ uint64_t eval_input(uint64_t* line) {
 
   if (op == OP_STATE)
     return get_cached_state(line);
+  else if (op == OP_INPUT) {
+    if (input_steps == 0)
+      // TODO: input is consumed more than once
+      input_steps = current_step;
 
-  printf("%s: unknown line operator %s\n", selfie_name, op);
+    set_state(line, current_input);
+
+    set_step(line, next_step);
+
+    if (any_input == 0)
+      first_input = 1;
+
+    any_input = 1;
+
+    return get_state(line);
+  }
+
+  printf("%s: unknown operator %s\n", selfie_name, op);
 
   exit(EXITCODE_SYSTEMERROR);
 }
@@ -3005,17 +3949,19 @@ uint64_t eval_ext(uint64_t* line) {
 
   w = eval_ext_w(line);
 
-  if (eval_bitvec_size(get_sid(line)) == n + w) {
-    if (get_op(line) == OP_SEXT)
-      set_state(line, sign_shrink(sign_extend(eval_line(value_nid), n), n + w));
-    else
-      // assert: unsigned extension
-      set_state(line, eval_line(value_nid));
+  if (n + w <= WORDSIZEINBITS)
+    // TODO: support of double machine words
+    if (eval_bitvec_size(get_sid(line)) == n + w) {
+      if (get_op(line) == OP_SEXT)
+        set_state(line, sign_shrink(sign_extend(eval_line(value_nid), n), n + w));
+      else
+        // assert: unsigned extension
+        set_state(line, eval_line(value_nid));
 
-    set_step(line, current_step);
+      set_step(line, next_step);
 
-    return get_state(line);
-  }
+      return get_state(line);
+    }
 
   printf("%s: ext sort error: n==%lu, w==%lu, m==%lu\n", selfie_name,
     n, w, eval_bitvec_size(get_sid(line)));
@@ -3041,7 +3987,7 @@ uint64_t eval_slice(uint64_t* line) {
       if (eval_bitvec_size(get_sid(line)) == u - l + 1) {
         set_state(line, get_bits(eval_line(value_nid), l, u - l + 1));
 
-        set_step(line, current_step);
+        set_step(line, next_step);
 
         return get_state(line);
       }
@@ -3052,26 +3998,172 @@ uint64_t eval_slice(uint64_t* line) {
   exit(EXITCODE_SYSTEMERROR);
 }
 
-uint64_t eval_unary_op(uint64_t* line) {
-  char* op;
-  uint64_t* value_nid;
+uint64_t eval_concat(uint64_t* line) {
   uint64_t size;
-  uint64_t value;
-
-  op = get_op(line);
+  uint64_t* left_nid;
+  uint64_t* right_nid;
+  uint64_t left_size;
+  uint64_t right_size;
+  uint64_t left_value;
+  uint64_t right_value;
 
   size = eval_bitvec_size(get_sid(line));
 
-  value_nid = get_arg1(line);
+  left_nid  = get_arg1(line);
+  right_nid = get_arg2(line);
 
-  if (op == OP_DEC) {
-    match_sorts(get_sid(line), get_sid(value_nid), "dec operand");
+  left_size  = eval_bitvec_size(get_sid(left_nid));
+  right_size = eval_bitvec_size(get_sid(right_nid));
 
-    value = sign_extend(eval_line(value_nid), size);
+  if (size == left_size + right_size) {
+    left_value  = eval_line(left_nid);
+    right_value = eval_line(right_nid);
 
-    set_state(line, sign_shrink(value - 1, size));
+    set_state(line, left_shift(left_value, right_size) + right_value);
 
-    set_step(line, current_step);
+    set_step(line, next_step);
+
+    return get_state(line);
+  }
+
+  printf("%s: concat %lu-bit and %lu-bit bitvectors to missorted %lu-bit bitvector\n", selfie_name,
+    left_size, right_size, size);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+uint64_t eval_ite(uint64_t* line) {
+  uint64_t* if_nid;
+  uint64_t* then_nid;
+  uint64_t* else_nid;
+
+  if_nid   = get_arg1(line);
+  then_nid = get_arg2(line);
+  else_nid = get_arg3(line);
+
+  match_sorts(get_sid(if_nid), SID_BOOLEAN, "ite if");
+
+  match_sorts(get_sid(line), get_sid(then_nid), "ite then");
+  match_sorts(get_sid(line), get_sid(else_nid), "ite else");
+
+  if (eval_line(if_nid))
+    set_state(line, eval_line(then_nid));
+  else
+    set_state(line, eval_line(else_nid));
+
+  set_step(line, next_step);
+
+  return get_state(line);
+}
+
+uint64_t eval_read(uint64_t* line) {
+  uint64_t* read_nid;
+  uint64_t* index_nid;
+  uint64_t* state_nid;
+  uint64_t index;
+
+  read_nid = get_arg1(line);
+
+  if (is_array(get_sid(read_nid))) {
+    index_nid = get_arg2(line);
+
+    match_array_sorts(get_sid(read_nid), get_sid(index_nid), get_sid(line));
+
+    state_nid = (uint64_t*) eval_line(read_nid);
+
+    if (get_op(state_nid) == OP_STATE) {
+      // TODO: if current_step == next_step (during init) read after write is not detected
+      if (get_step(state_nid) == current_step) {
+        index = eval_line(index_nid);
+
+        set_state(line, read_or_write(state_nid, index, 0, 1));
+
+        set_step(line, next_step);
+
+        return get_state(line);
+      } else
+        printf("%s: read non-current state error\n", selfie_name);
+    } else
+      printf("%s: read non-state error\n", selfie_name);
+  } else
+    printf("%s: read non-array error\n", selfie_name);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+uint64_t eval_write(uint64_t* line) {
+  uint64_t* write_nid;
+  uint64_t* index_nid;
+  uint64_t* value_nid;
+  uint64_t* state_nid;
+  uint64_t index;
+  uint64_t value;
+
+  if (is_array(get_sid(line))) {
+    write_nid = get_arg1(line);
+    index_nid = get_arg2(line);
+    value_nid = get_arg3(line);
+
+    match_sorts(get_sid(line), get_sid(write_nid), "write");
+    match_array_sorts(get_sid(write_nid), get_sid(index_nid), get_sid(value_nid));
+
+    state_nid = (uint64_t*) eval_line(write_nid);
+
+    if (get_op(state_nid) == OP_STATE) {
+      if (get_step(state_nid) != UNINITIALIZED) {
+        if (get_step(state_nid) >= current_step) {
+          index = eval_line(index_nid);
+          value = eval_line(value_nid);
+
+          read_or_write(state_nid, index, value, 0);
+
+          // TODO: log writes and only apply with init and next
+          set_step(state_nid, next_step);
+
+          set_state(line, (uint64_t) state_nid);
+
+          set_step(line, next_step);
+
+          return get_state(line);
+        } else
+          printf("%s: write non-current state error\n", selfie_name);
+      } else
+        printf("%s: write uninitialized state error\n", selfie_name);
+    } else
+      printf("%s: write non-state error\n", selfie_name);
+  } else
+    printf("%s: write non-array error\n", selfie_name);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+uint64_t eval_unary_op(uint64_t* line) {
+  char* op;
+  uint64_t* value_nid;
+  uint64_t value;
+  uint64_t size;
+
+  op = get_op(line);
+
+  if (is_unary_op(op)) {
+    value_nid = get_arg1(line);
+
+    match_sorts(get_sid(line), get_sid(value_nid), "unary operand");
+
+    value = eval_line(value_nid);
+
+    size = eval_bitvec_size(get_sid(value_nid));
+
+    if (op == OP_NOT)
+      set_state(line, sign_shrink(-value - 1, size));
+    else if (op == OP_INC)
+      set_state(line, sign_shrink(value + 1, size));
+    else if (op == OP_DEC)
+      set_state(line, sign_shrink(value - 1, size));
+    else if (op == OP_NEG)
+      set_state(line, sign_shrink(-value, size));
+
+    set_step(line, next_step);
 
     return get_state(line);
   }
@@ -3081,123 +4173,114 @@ uint64_t eval_unary_op(uint64_t* line) {
   exit(EXITCODE_SYSTEMERROR);
 }
 
-uint64_t eval_write(uint64_t* line) {
-  uint64_t* array_nid;
-  uint64_t index;
-  uint64_t value;
-
-  if ((char*) get_arg1(get_sid(line)) == ARRAY) {
-    array_nid = get_arg1(line);
-
-    match_sorts(get_sid(line), get_sid(array_nid), "write array");
-
-    array_nid = (uint64_t*) eval_line(array_nid);
-
-    match_sorts(get_sid(get_arg2(line)), get_arg2(get_sid(array_nid)), "write array size");
-    match_sorts(get_sid(get_arg3(line)), get_arg3(get_sid(array_nid)), "write array element");
-
-    index = eval_line(get_arg2(line));
-    value = eval_line(get_arg3(line));
-
-    write_value(index, value, array_nid);
-
-    set_state(line, (uint64_t) array_nid);
-
-    set_step(line, current_step);
-
-    return get_state(line);
-  }
-
-  printf("%s: write non-array error\n", selfie_name);
-
-  exit(EXITCODE_SYSTEMERROR);
-}
-
 uint64_t eval_binary_op(uint64_t* line) {
   char* op;
   uint64_t* left_nid;
   uint64_t* right_nid;
-  uint64_t size;
   uint64_t left_value;
   uint64_t right_value;
-  uint64_t* state_nid;
-  uint64_t* value_nid;
+  uint64_t size;
 
   op = get_op(line);
 
-  left_nid  = get_arg1(line);
-  right_nid = get_arg2(line);
+  if (is_binary_operator(op)) {
+    left_nid  = get_arg1(line);
+    right_nid = get_arg2(line);
 
-  if (op == OP_SUB) {
-    size = eval_bitvec_size(get_sid(line));
+    match_sorts(get_sid(left_nid), get_sid(right_nid), "left and right operand");
 
-    match_sorts(get_sid(line), get_sid(left_nid), "sub left operand");
-    match_sorts(get_sid(line), get_sid(right_nid), "sub right operand");
+    if (op == OP_IMPLIES) {
+      match_sorts(get_sid(left_nid), SID_BOOLEAN, "implication operator");
+      match_sorts(get_sid(line), SID_BOOLEAN, "implication operator");
 
-    left_value  = sign_extend(eval_line(left_nid), size);
-    right_value = sign_extend(eval_line(right_nid), size);
+      left_value = eval_line(left_nid);
 
-    set_state(line, sign_shrink(left_value - right_value, size));
+      if (left_value == 0)
+        set_state(line, left_value == 0);
+      else {
+        // lazy evaluation of right operand
+        right_value = eval_line(right_nid);
 
-    set_step(line, current_step);
-
-    return get_state(line);
-  } else if (op == OP_INIT) {
-    state_nid = left_nid;
-
-    if (get_op(state_nid) != OP_STATE) {
-      printf("%s: init %s error\n", selfie_name, get_op(state_nid));
-
-      exit(EXITCODE_SYSTEMERROR);
-    }
-
-    match_sorts(get_sid(line), get_sid(state_nid), "init state");
-
-    value_nid = right_nid;
-
-    if ((char*) get_arg1(get_sid(state_nid)) == BITVEC) {
-      match_sorts(get_sid(state_nid), get_sid(value_nid), "init bitvec");
-
-      set_state(state_nid, eval_line(value_nid));
-
-      set_step(state_nid, current_step);
+        set_state(line, right_value != 0);
+      }
     } else {
-      // assert: sid of state line is ARRAY
-      if ((char*) get_arg1(get_sid(value_nid)) == BITVEC) {
-        match_sorts(get_arg3(get_sid(state_nid)), get_sid(value_nid), "init array element");
+      left_value  = eval_line(left_nid);
+      right_value = eval_line(right_nid);
 
-        if (eval_line(value_nid) != 0) {
-          printf("%s: init non-zero array element error\n", selfie_name);
+      size = eval_bitvec_size(get_sid(left_nid));
 
-          exit(EXITCODE_SYSTEMERROR);
+      if (is_bitwise_operator(op)) {
+        match_sorts(get_sid(line), get_sid(left_nid), "bitwise operator");
+
+        if (op == OP_AND)
+          set_state(line, bitwise_and(left_value, right_value));
+        else if (op == OP_OR)
+          set_state(line, bitwise_or(left_value, right_value));
+        else if (op == OP_XOR)
+          set_state(line, bitwise_xor(left_value, right_value));
+        else if (op == OP_SLL)
+          set_state(line, sign_shrink(left_shift(left_value, right_value), size));
+        else if (op == OP_SRL)
+          set_state(line, right_shift(left_value, right_value));
+        else if (op == OP_SRA)
+          set_state(line, arithmetic_right_shift(left_value, right_value, size));
+      } else if (is_arithmetic_operator(op)) {
+        match_sorts(get_sid(line), get_sid(left_nid), "arithmetic operator");
+
+        if (op == OP_ADD)
+          set_state(line, left_value + right_value);
+        else if (op == OP_SUB)
+          set_state(line, left_value - right_value);
+        else if (op == OP_MUL)
+          set_state(line, left_value * right_value);
+        else if (op == OP_UDIV)
+          set_state(line, left_value / right_value);
+        else if (op == OP_UREM)
+          set_state(line, left_value % right_value);
+        else {
+          left_value  = sign_extend(left_value, size);
+          right_value = sign_extend(right_value, size);
+
+          if (op == OP_SDIV)
+            set_state(line, sign_shrink(signed_division(left_value, right_value), size));
+          else if (op == OP_SREM)
+            set_state(line,
+              sign_shrink(left_value - signed_division(left_value, right_value) * right_value, size));
         }
+      } else if (is_comparison_operator(op)) {
+        match_sorts(get_sid(line), SID_BOOLEAN, "comparison operator");
 
-        // assert: element size of state address space <= sizeof(uint64_t)
+        if (op == OP_EQ)
+          set_state(line, left_value == right_value);
+        else if (op == OP_NEQ)
+          set_state(line, left_value != right_value);
+        else if (op == OP_UGT)
+          set_state(line, left_value > right_value);
+        else if (op == OP_UGTE)
+          set_state(line, left_value >= right_value);
+        else if (op == OP_ULT)
+          set_state(line, left_value < right_value);
+        else if (op == OP_ULTE)
+          set_state(line, left_value <= right_value);
+        else {
+          left_value  = sign_extend(left_value, size);
+          right_value = sign_extend(right_value, size);
 
-        set_state(state_nid, (uint64_t) zmalloc(two_to_the_power_of(eval_array_size(get_sid(state_nid))) * sizeof(uint64_t)));
-
-        set_step(state_nid, current_step);
-      } else {
-        // assert: sid of value line is ARRAY
-        match_sorts(get_sid(state_nid), get_sid(value_nid), "init array");
-
-        value_nid = (uint64_t*) eval_line(value_nid);
-
-        if (get_state(state_nid) != get_state(value_nid)) {
-          set_state(state_nid, get_state(value_nid));
-
-          set_step(state_nid, current_step);
-
-          // TODO: reinitialize state
-          set_state(value_nid, 0);
+          if (op == OP_SGT)
+            set_state(line, signed_less_than(right_value, left_value));
+          else if (op == OP_SGTE)
+            set_state(line, signed_less_than_or_equal_to(right_value, left_value));
+          else if (op == OP_SLT)
+            set_state(line, signed_less_than(left_value, right_value));
+          else if (op == OP_SLTE)
+            set_state(line, signed_less_than_or_equal_to(left_value, right_value));
         }
       }
     }
 
-    set_step(line, current_step);
+    set_step(line, next_step);
 
-    // assert: return value is never used
-    return (uint64_t) state_nid;
+    return get_state(line);
   }
 
   printf("%s: unknown binary operator %s\n", selfie_name, op);
@@ -3210,7 +4293,7 @@ uint64_t eval_line(uint64_t* line) {
 
   op = get_op(line);
 
-  if (get_step(line) == current_step)
+  if (get_step(line) == next_step)
     return get_cached_state(line);
   else if (is_constant_op(op))
     return eval_constant_value(line);
@@ -3222,12 +4305,356 @@ uint64_t eval_line(uint64_t* line) {
     return eval_ext(line);
   else if (op == OP_SLICE)
     return eval_slice(line);
-  else if (is_unary_op(op))
-    return eval_unary_op(line);
+  else if (op == OP_CONCAT)
+    return eval_concat(line);
+  else if (op == OP_ITE)
+    return eval_ite(line);
+  else if (op == OP_READ)
+    return eval_read(line);
   else if (op == OP_WRITE)
     return eval_write(line);
+  else if (is_unary_op(op))
+    return eval_unary_op(line);
   else
     return eval_binary_op(line);
+}
+
+uint64_t eval_line_for(uint64_t core, uint64_t* lines) {
+  return eval_line(get_for(core, lines));
+}
+
+uint64_t eval_property(uint64_t core, uint64_t* line) {
+  char* op;
+  uint64_t* condition_nid;
+  char* symbol;
+  uint64_t condition;
+
+  if (line == UNUSED)
+    // no property to evaluate: do not halt
+    return 0;
+
+  op = get_op(line);
+
+  condition_nid = get_arg1(line);
+  symbol        = (char*) get_arg2(line);
+
+  condition = eval_line(condition_nid);
+
+  if (op == OP_BAD) {
+    if (condition != 0) {
+      printf("%s: bad %s satisfied on core-%lu @ 0x%lX after %lu steps", selfie_name,
+        symbol, core, eval_line_for(core, state_pc_nids), next_step - current_offset);
+      if (any_input) printf(" with input %lu\n", current_input); else printf("\n");
+    }
+
+    set_state(line, condition != 0);
+    set_step(line, next_step);
+
+    return condition != 0;
+  } else if (op == OP_CONSTRAINT) {
+    if (condition == 0) {
+      printf("%s: constraint %s violated on core-%lu @ 0x%lX after %lu steps\n", selfie_name,
+        symbol, core, eval_line_for(core, state_pc_nids), next_step - current_offset);
+      if (any_input) printf(" with input %lu\n", current_input); else printf("\n");
+    }
+
+    set_state(line, condition == 0);
+    set_step(line, next_step);
+
+    return condition == 0;
+  }
+
+  printf("%s: unknown property operator %s\n", selfie_name, op);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+uint64_t eval_property_for(uint64_t core, uint64_t* lines) {
+  return eval_property(core, get_for(core, lines));
+}
+
+uint64_t eval_init(uint64_t* line) {
+  uint64_t* state_nid;
+  uint64_t* value_nid;
+
+  if (get_op(line) == OP_INIT)
+    if (current_step == INITIALIZED)
+      if (current_step == next_step) {
+        if (get_step(line) == UNINITIALIZED) {
+          state_nid = get_arg1(line);
+
+          if (get_op(state_nid) == OP_STATE) {
+            if (get_step(state_nid) == UNINITIALIZED) {
+              match_sorts(get_sid(line), get_sid(state_nid), "init state");
+
+              value_nid = get_arg2(line);
+
+              if (is_bitvector(get_sid(state_nid))) {
+                match_sorts(get_sid(state_nid), get_sid(value_nid), "init bitvector");
+
+                set_state(state_nid, eval_line(value_nid));
+
+                set_step(state_nid, INITIALIZED);
+              } else {
+                // assert: sid of state line is ARRAY
+                if (is_bitvector(get_sid(value_nid))) {
+                  match_sorts(get_arg3(get_sid(state_nid)), get_sid(value_nid), "init array element");
+
+                  if (eval_line(value_nid) != 0) {
+                    printf("%s: init non-zero array element error\n", selfie_name);
+
+                    exit(EXITCODE_SYSTEMERROR);
+                  }
+
+                  set_state(state_nid, (uint64_t) allocate_array(get_sid(state_nid)));
+
+                  set_step(state_nid, INITIALIZED);
+                } else {
+                  // assert: sid of value line is ARRAY
+                  match_sorts(get_sid(state_nid), get_sid(value_nid), "init array");
+
+                  value_nid = (uint64_t*) eval_line(value_nid);
+
+                  if (get_state(state_nid) != get_state(value_nid)) {
+                    set_state(state_nid, get_state(value_nid));
+
+                    set_step(state_nid, INITIALIZED);
+
+                    // TODO: reinitialize value state
+                    set_state(value_nid, 0);
+                    set_step(value_nid, UNINITIALIZED);
+                  } else {
+                    printf("%s: init reinitializing array error\n", selfie_name);
+
+                    exit(EXITCODE_SYSTEMERROR);
+                  }
+                }
+              }
+
+              set_step(line, INITIALIZED);
+
+              // assert: return value is never used
+              return (uint64_t) state_nid;
+            } else
+              printf("%s: init reinitializing state error\n", selfie_name);
+          } else
+            printf("%s: init %s error\n", selfie_name, get_op(state_nid));
+        } else
+          printf("%s: init reinitializing init error\n", selfie_name);
+
+        exit(EXITCODE_SYSTEMERROR);
+      }
+
+  printf("%s: init error\n", selfie_name);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+uint64_t eval_next(uint64_t* line) {
+  uint64_t current_next;
+  uint64_t* state_nid;
+  uint64_t* value_nid;
+  uint64_t value;
+  uint64_t no_update;
+
+  if (get_op(line) == OP_NEXT)
+    if (current_step < next_step)
+      if (current_step + 1 == next_step) {
+        current_next = current_step;
+
+        if (current_next == 0)
+          current_next = UNINITIALIZED;
+
+        if (get_step(line) == current_next) {
+          state_nid = get_arg1(line);
+
+          if (get_op(state_nid) == OP_STATE) {
+            if (get_step(state_nid) >= current_step) {
+              match_sorts(get_sid(line), get_sid(state_nid), "next state");
+
+              value_nid = get_arg2(line);
+
+              match_sorts(get_sid(state_nid), get_sid(value_nid), "next state and value");
+
+              if (is_bitvector(get_sid(state_nid))) {
+                if (get_step(state_nid) == current_step) {
+                  value = eval_line(value_nid);
+
+                  no_update = get_state(state_nid) == value;
+                } else {
+                  printf("%s: next reupdating bitvector state error\n", selfie_name);
+
+                  exit(EXITCODE_SYSTEMERROR);
+                }
+              } else {
+                // assert: sid of state line is ARRAY
+                if (get_step(state_nid) <= next_step) {
+                  value_nid = (uint64_t*) eval_line(value_nid);
+
+                  if (get_state(state_nid) == get_state(value_nid))
+                    no_update = state_nid == value_nid;
+                  else {
+                    printf("%s: next reupdating state array error\n", selfie_name);
+
+                    exit(EXITCODE_SYSTEMERROR);
+                  }
+                } else {
+                  printf("%s: next reupdating array state error\n", selfie_name);
+
+                  exit(EXITCODE_SYSTEMERROR);
+                }
+              }
+
+              set_step(line, next_step);
+
+              return no_update;
+            } else
+              printf("%s: next non-current state error\n", selfie_name);
+          } else
+            printf("%s: next %s error\n", selfie_name, get_op(state_nid));
+
+          exit(EXITCODE_SYSTEMERROR);
+        }
+      }
+
+  printf("%s: next error\n", selfie_name);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+uint64_t eval_next_for(uint64_t core, uint64_t* lines) {
+  if (get_for(core, lines) == UNUSED)
+    // no impact on state: do not halt
+    return 1;
+  else
+    return eval_next(get_for(core, lines));
+}
+
+void apply_next(uint64_t* line) {
+  uint64_t* state_nid;
+  uint64_t* value_nid;
+
+  if (get_step(line) == next_step) {
+    state_nid = get_arg1(line);
+
+    if (is_bitvector(get_sid(state_nid))) {
+      value_nid = get_arg2(line);
+
+      set_state(state_nid, get_state(value_nid));
+    } // TODO: log writes and only apply with init and next
+
+    set_step(state_nid, next_step);
+
+    return;
+  }
+
+  printf("%s: apply error\n", selfie_name);
+
+  exit(EXITCODE_SYSTEMERROR);
+}
+
+void apply_next_for(uint64_t core, uint64_t* lines) {
+  if (get_for(core, lines) == UNUSED)
+    return;
+  else
+    apply_next(get_for(core, lines));
+}
+
+uint64_t* memcopy(uint64_t* destination, uint64_t* source, uint64_t bytes) {
+  uint64_t i;
+
+  // assert: bytes is multiple of sizeof(uint64_t)
+
+  bytes = bytes / sizeof(uint64_t);
+
+  i = 0;
+
+  while (i < bytes) {
+    *(destination + i) = *(source + i);
+
+    i = i + 1;
+  }
+
+  return destination;
+}
+
+void save_state(uint64_t* line) {
+  uint64_t* state_nid;
+  uint64_t* sid;
+  uint64_t array_size;
+  uint64_t element_size;
+  uint64_t* source;
+  uint64_t* destination;
+
+  state_nid = get_arg1(line);
+
+  sid = get_sid(state_nid);
+
+  if (is_bitvector(sid))
+    set_state(line, get_state(state_nid));
+  else if (sid != SID_CODE_STATE) {
+    // assert: array
+    array_size   = eval_array_size(sid);
+    element_size = eval_element_size(sid);
+
+    source      = (uint64_t*) get_state(state_nid);
+    destination = (uint64_t*) get_state(line);
+
+    if (destination == (uint64_t*) 0) {
+      destination = allocate_array(get_sid(state_nid));
+
+      set_state(line, (uint64_t) destination);
+    }
+
+    if (sid != SID_MEMORY_STATE)
+      // assert: register files
+      memcopy(destination, source, two_to_the_power_of(array_size) * sizeof(uint64_t));
+    else {
+      memcopy(get_data_array(destination),
+        get_data_array(source),
+        two_to_the_power_of(calculate_address_space(data_size, element_size)) * sizeof(uint64_t));
+      memcopy(get_heap_array(destination),
+        get_heap_array(source),
+        two_to_the_power_of(calculate_address_space(heap_size, element_size)) * sizeof(uint64_t));
+      memcopy(get_stack_array(destination),
+        get_stack_array(source),
+        two_to_the_power_of(calculate_address_space(stack_size, element_size)) * sizeof(uint64_t));
+    }
+  }
+}
+
+void save_state_for(uint64_t core, uint64_t* lines) {
+  if (get_for(core, lines) == UNUSED)
+    return;
+  else
+    save_state(get_for(core, lines));
+}
+
+void restore_state(uint64_t* line) {
+  uint64_t* state_nid;
+  uint64_t current_state;
+
+  state_nid = get_arg1(line);
+
+  if (get_sid(state_nid) != SID_CODE_STATE) {
+    current_state = get_state(state_nid);
+
+    set_state(state_nid, get_state(line));
+
+    // keep current state to avoid reallocating arrays
+    set_state(line, current_state);
+  }
+
+  set_step(state_nid, next_step);
+
+  set_step(line, next_step);
+}
+
+void restore_state_for(uint64_t core, uint64_t* lines) {
+  if (get_for(core, lines) == UNUSED)
+    return;
+  else
+    restore_state(get_for(core, lines));
 }
 
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
@@ -3305,12 +4732,16 @@ void print_interface_kernel() {
 void new_kernel_state(uint64_t core, uint64_t bytes_to_read) {
   if (core == 0) {
     state_program_break_nid = new_input(OP_STATE, SID_VIRTUAL_ADDRESS, "program-break", "program break");
-    init_program_break_nid  = new_binary(OP_INIT, SID_VIRTUAL_ADDRESS, state_program_break_nid,
+    init_program_break_nid  = new_init(SID_VIRTUAL_ADDRESS, state_program_break_nid,
       NID_HEAP_START, "initial program break is start of heap segment");
 
+    eval_init(init_program_break_nid);
+
     state_file_descriptor_nid = new_input(OP_STATE, SID_MACHINE_WORD, "file-descriptor", "file descriptor");
-    init_file_descriptor_nid  = new_binary(OP_INIT, SID_MACHINE_WORD, state_file_descriptor_nid,
+    init_file_descriptor_nid  = new_init(SID_MACHINE_WORD, state_file_descriptor_nid,
       NID_MACHINE_WORD_0, "initial file descriptor is zero");
+
+    eval_init(init_file_descriptor_nid);
 
     next_program_break_nid   = state_program_break_nid;
     next_file_descriptor_nid = state_file_descriptor_nid;
@@ -3324,13 +4755,17 @@ void new_kernel_state(uint64_t core, uint64_t bytes_to_read) {
 
   state_readable_bytes_nid = new_input(OP_STATE, SID_MACHINE_WORD,
     format_comment("core-%lu-readable-bytes", core), "readable bytes");
-  init_readable_bytes_nid  = new_binary(OP_INIT, SID_MACHINE_WORD, state_readable_bytes_nid,
+  init_readable_bytes_nid  = new_init(SID_MACHINE_WORD, state_readable_bytes_nid,
     param_readable_bytes_nid, "number of readable bytes");
+
+  eval_init(init_readable_bytes_nid);
 
   state_read_bytes_nid = new_input(OP_STATE, SID_MACHINE_WORD,
     format_comment("core-%lu-read-bytes", core), "bytes read in active read system call");
-  init_read_bytes_nid  = new_binary(OP_INIT, SID_MACHINE_WORD, state_read_bytes_nid,
+  init_read_bytes_nid  = new_init(SID_MACHINE_WORD, state_read_bytes_nid,
     NID_MACHINE_WORD_0, "initially zero read bytes");
+
+  eval_init(init_read_bytes_nid);
 }
 
 void print_kernel_state(uint64_t core) {
@@ -3340,7 +4775,7 @@ void print_kernel_state(uint64_t core) {
     print_break_line(init_file_descriptor_nid);
   }
 
-  print_break_comment_line(format_comment("core-%lu kernel state", core), init_readable_bytes_nid);
+  print_break_comment_line_for(core, "kernel state", init_readable_bytes_nid);
 
   print_break_line(init_read_bytes_nid);
 }
@@ -3393,6 +4828,8 @@ void new_register_file_state(uint64_t core) {
   uint64_t  value;
   uint64_t* value_nid;
 
+  set_for(core, state_register_file_nids, state_register_file_nid);
+
   if (SYNCHRONIZED_REGISTERS) {
     if (core > 0)
       return;
@@ -3403,22 +4840,30 @@ void new_register_file_state(uint64_t core) {
   state_register_file_nid = new_input(OP_STATE, SID_REGISTER_STATE,
     format_comment("core-%lu-zeroed-register-file", core), "zeroed register file");
 
-  init_zeroed_register_file_nid = new_binary(OP_INIT, SID_REGISTER_STATE,
+  set_for(core, state_register_file_nids, state_register_file_nid);
+
+  init_zeroed_register_file_nid = new_init(SID_REGISTER_STATE,
     state_register_file_nid, NID_MACHINE_WORD_0, "zeroing register file");
 
-  if (CODE_LOADED == 0)
+  eval_init(init_zeroed_register_file_nid);
+
+  if (number_of_binaries == 0) {
+    value_nid = cast_virtual_address_to_machine_word(
+      new_unary(OP_DEC, SID_VIRTUAL_ADDRESS, NID_STACK_END, "end of stack segment - 1"));
     initial_register_file_nid =
-      store_register_value(NID_SP,
-        cast_virtual_address_to_machine_word(
-          new_unary(OP_DEC, SID_VIRTUAL_ADDRESS, NID_STACK_END, "end of stack segment - 1")),
-        "write initial sp value",
-        state_register_file_nid);
-  else {
+      store_register_value(NID_SP, value_nid, "write initial sp value", state_register_file_nid);
+
+    if (eval_line(load_register_value(NID_SP, "read initial sp value", initial_register_file_nid)) != eval_line(value_nid)) {
+      printf("%s: initial register file value mismatch @ %s\n", selfie_name, get_register_name(REG_SP));
+
+      exit(EXITCODE_SYSTEMERROR);
+    }
+  } else {
     initial_register_file_nid = state_register_file_nid;
 
     reg = 0;
 
-    while (reg < 32) {
+    while (reg < NUMBEROFREGISTERS) {
       value = *(get_regs(current_context) + reg);
 
       if (value != 0) {
@@ -3435,6 +4880,12 @@ void new_register_file_state(uint64_t core) {
         initial_register_file_nid =
           store_register_value(reg_nid, value_nid,
             "write initial register value", initial_register_file_nid);
+
+        if (eval_line(load_register_value(reg_nid, "read initial register value", initial_register_file_nid)) != value) {
+          printf("%s: initial register file value mismatch @ %s\n", selfie_name, get_register_name(reg));
+
+          exit(EXITCODE_SYSTEMERROR);
+        }
       }
 
       reg = reg + 1;
@@ -3442,20 +4893,20 @@ void new_register_file_state(uint64_t core) {
   }
 
   if (initial_register_file_nid != state_register_file_nid) {
-    eval_line(init_zeroed_register_file_nid);
-
-    next_zeroed_register_file_nid = new_binary(OP_NEXT, SID_REGISTER_STATE,
+    next_zeroed_register_file_nid = new_next(SID_REGISTER_STATE,
       state_register_file_nid, state_register_file_nid, "read-only zeroed register file");
 
     state_register_file_nid = new_input(OP_STATE, SID_REGISTER_STATE,
       format_comment("core-%lu-initialized-register-file", core), "initialized register file");
 
-    init_register_file_nid = new_binary(OP_INIT, SID_REGISTER_STATE,
+    set_for(core, state_register_file_nids, state_register_file_nid);
+
+    init_register_file_nid = new_init(SID_REGISTER_STATE,
       state_register_file_nid, initial_register_file_nid, "initializing registers");
   } else
     init_register_file_nid = init_zeroed_register_file_nid;
 
-  eval_line(init_register_file_nid);
+  eval_init(init_register_file_nid);
 }
 
 void print_register_file_state(uint64_t core) {
@@ -3466,21 +4917,21 @@ void print_register_file_state(uint64_t core) {
     if (core > 0)
       return;
 
-  print_break_comment("zeroed register file");
+  print_break_comment_for(core, "zeroed register file");
 
   print_line(init_zeroed_register_file_nid);
 
   if (init_register_file_nid != init_zeroed_register_file_nid) {
     print_line(next_zeroed_register_file_nid);
 
-    if (CODE_LOADED == 0)
+    if (number_of_binaries == 0)
       print_break_comment("initializing sp");
     else
-      print_aligned_break_comment("initializing registers", log_ten(32 * 3 + 1) + 1);
+      print_aligned_break_comment("initializing registers", log_ten(NUMBEROFREGISTERS * 3 + 1) + 1);
 
     print_line(initial_register_file_nid);
 
-    print_break_comment("initialized register file");
+    print_break_comment_for(core, "initialized register file");
 
     print_line(init_register_file_nid);
   }
@@ -3506,10 +4957,13 @@ void print_memory_sorts() {
   print_line(SID_MEMORY_STATE);
 }
 
-void new_segmentation() {
+void new_segmentation(uint64_t core) {
   uint64_t stack_end;
   uint64_t low_stack_address_space;
   uint64_t up_stack_address_space;
+
+  if (core > 0)
+    return;
 
   NID_CODE_START = new_constant(OP_CONSTH, SID_VIRTUAL_ADDRESS,
     code_start,
@@ -3608,6 +5062,25 @@ void new_segmentation() {
   }
 }
 
+void print_segmentation(uint64_t core) {
+  if (core > 0)
+    return;
+
+  print_break_comment("segmentation");
+
+  print_line(NID_CODE_START);
+  print_line(NID_CODE_END);
+
+  print_line(NID_DATA_START);
+  print_line(NID_DATA_END);
+
+  print_line(NID_HEAP_START);
+  print_line(NID_HEAP_END);
+
+  print_line(NID_STACK_START);
+  print_line(NID_STACK_END);
+}
+
 uint64_t* is_block_in_segment(uint64_t* block_start_nid, uint64_t* block_end_nid,
   uint64_t* segment_start_nid, uint64_t* segment_end_nid) {
   // assert: block and segment start <= end
@@ -3640,7 +5113,7 @@ uint64_t* is_block_in_heap_segment(uint64_t* start_nid, uint64_t* end_nid) {
 
 uint64_t* is_block_in_stack_segment(uint64_t* start_nid, uint64_t* end_nid) {
   // assert: start <= end
-  if ((uint64_t) get_arg1(NID_STACK_END) > 0)
+  if (eval_constant_value(NID_STACK_END) > 0)
     return is_block_in_segment(start_nid, end_nid, NID_STACK_START, NID_STACK_END);
   else
     // comparing with end of stack segment is unnecessary since end wrapped around to zero
@@ -3650,58 +5123,35 @@ uint64_t* is_block_in_stack_segment(uint64_t* start_nid, uint64_t* end_nid) {
       "virtual address of start of block >= start of stack segment?");
 }
 
-void print_segmentation() {
-  print_break_comment("segmentation");
-
-  print_line(NID_CODE_START);
-  print_line(NID_CODE_END);
-
-  print_line(NID_DATA_START);
-  print_line(NID_DATA_END);
-
-  print_line(NID_HEAP_START);
-  print_line(NID_HEAP_END);
-
-  print_line(NID_STACK_START);
-  print_line(NID_STACK_END);
-}
-
 void new_code_segment(uint64_t core) {
   uint64_t  number_of_hex_digits;
-  uint64_t  code_size_in_instructions;
   uint64_t* vaddr_nid;
   uint64_t* ir_nid;
+  uint64_t* code_segment_nid;
 
-  if (core > 0) {
-    if (SYNTHESIZE)
-      state_code_segment_nid = new_input(OP_STATE, SID_CODE_STATE,
-        format_comment("core-%lu-code-segment", core), "code segment");
-
-    return;
-  }
-
-  if (CODE_LOADED == 0)
+  if (core >= number_of_binaries) {
     state_code_segment_nid = new_input(OP_STATE, SID_CODE_STATE,
       format_comment("core-%lu-code-segment", core), "code segment");
-  else {
-    state_code_segment_nid = new_input(OP_STATE, SID_CODE_STATE,
-      "code-segment", "code segment");
 
-    init_zeroed_code_segment_nid = new_binary(OP_INIT, SID_CODE_STATE,
-      state_code_segment_nid, NID_CODE_WORD_0, "zeroing code segment");
+    init_code_segment_nid = UNUSED;
+    next_code_segment_nid = UNUSED;
+  } else {
+    state_zeroed_code_segment_nid = new_input(OP_STATE, SID_CODE_STATE,
+      format_comment("core-%lu-code-segment", core), "code segment");
 
-    eval_line(init_zeroed_code_segment_nid);
+    init_zeroed_code_segment_nid = new_init(SID_CODE_STATE,
+      state_zeroed_code_segment_nid, NID_CODE_WORD_0, "zeroing code segment");
+
+    eval_init(init_zeroed_code_segment_nid);
+
+    next_zeroed_code_segment_nid = new_next(SID_CODE_STATE,
+      state_zeroed_code_segment_nid, state_zeroed_code_segment_nid, "read-only zeroed code segment");
 
     number_of_hex_digits = round_up(VIRTUAL_ADDRESS_SPACE, 4) / 4;
 
-    initial_code_segment_nid = state_code_segment_nid;
+    initial_code_nid = UNUSED;
 
-    code_size_in_instructions = code_size / INSTRUCTIONSIZE;
-
-    if (code_size % INSTRUCTIONSIZE > 0)
-      code_size_in_instructions = code_size_in_instructions + 1;
-
-    initial_code_segment_nids = zmalloc(code_size_in_instructions * sizeof(uint64_t*));
+    initial_code_segment_nid = state_zeroed_code_segment_nid;
 
     reuse_lines = 0; // TODO: turn on via console argument
 
@@ -3713,20 +5163,29 @@ void new_code_segment(uint64_t core) {
       if (ir != 0) {
         // skipping zero as instruction
         vaddr_nid = new_constant(OP_CONSTH, SID_VIRTUAL_ADDRESS,
-          pc,
-          number_of_hex_digits,
-          format_comment("vaddr 0x%lX", pc));
+          pc, number_of_hex_digits, format_comment("vaddr 0x%lX", pc));
+
         ir_nid = new_constant(OP_CONST, SID_INSTRUCTION_WORD,
-          ir,
-          32,
-          format_comment("code 0x%04lX", ir));
-        initial_code_segment_nid =
+          ir, 32, format_comment("code 0x%04lX", ir));
+
+        code_segment_nid =
           store_single_word_at_virtual_address(vaddr_nid, ir_nid, initial_code_segment_nid);
 
-        eval_line(initial_code_segment_nid);
+        if (initial_code_nid == UNUSED)
+          initial_code_nid = code_segment_nid;
 
-        // for printing initial code segment iteratively to avoid stack overflow in recursion
-        *(initial_code_segment_nids + (pc - code_start) / INSTRUCTIONSIZE) = (uint64_t) initial_code_segment_nid;
+        if (initial_code_segment_nid != state_zeroed_code_segment_nid)
+          // set successor for printing initial code segment iteratively to avoid stack overflow
+          set_succ(initial_code_segment_nid, code_segment_nid);
+
+        initial_code_segment_nid = code_segment_nid;
+
+        // evaluate on-the-fly to avoid stack overflow
+        if (eval_line(load_single_word_at_virtual_address(vaddr_nid, initial_code_segment_nid)) != ir) {
+          printf("%s: initial code segment value mismatch @ 0x%lX\n", selfie_name, pc);
+
+          exit(EXITCODE_SYSTEMERROR);
+        }
       }
 
       pc = pc + INSTRUCTIONSIZE;
@@ -3734,74 +5193,54 @@ void new_code_segment(uint64_t core) {
 
     reuse_lines = 1;
 
-    if (initial_code_segment_nid != state_code_segment_nid) {
-      next_zeroed_code_segment_nid = new_binary(OP_NEXT, SID_CODE_STATE,
-        state_code_segment_nid, state_code_segment_nid, "read-only zeroed code segment");
-
+    if (initial_code_segment_nid != state_zeroed_code_segment_nid) {
       state_code_segment_nid = new_input(OP_STATE, SID_CODE_STATE,
-        "loaded-code-segment", "loaded code segment");
+        format_comment("core-%lu-loaded-code-segment", core), "loaded code segment");
 
-      init_code_segment_nid = new_binary(OP_INIT, SID_CODE_STATE,
+      init_code_segment_nid = new_init(SID_CODE_STATE,
         state_code_segment_nid, initial_code_segment_nid, "loaded code");
-    } else
-      init_code_segment_nid = init_zeroed_code_segment_nid;
 
-    eval_line(init_code_segment_nid);
+      eval_init(init_code_segment_nid);
 
-    next_code_segment_nid = new_binary(OP_NEXT, SID_CODE_STATE,
-      state_code_segment_nid, state_code_segment_nid, "read-only code segment");
+      next_code_segment_nid = new_next(SID_CODE_STATE,
+        state_code_segment_nid, state_code_segment_nid, "read-only code segment");
+    } else {
+      state_code_segment_nid = state_zeroed_code_segment_nid;
+      init_code_segment_nid  = init_zeroed_code_segment_nid;
+      next_code_segment_nid  = next_zeroed_code_segment_nid;
+    }
   }
+
+  set_for(core, state_code_segment_nids, state_code_segment_nid);
+  set_for(core, next_code_segment_nids, next_code_segment_nid);
 }
 
 void print_code_segment(uint64_t core) {
-  uint64_t code_size_in_instructions;
-  uint64_t i;
-
-  if (core > 0) {
-    if (SYNTHESIZE) {
-      print_break_comment("uninitialized code segment");
-
-      print_line(state_code_segment_nid);
-    }
-
-    return;
-  }
-
-  if (CODE_LOADED == 0) {
-    print_break_comment("uninitialized code segment");
+  if (core >= number_of_binaries) {
+    print_break_comment_for(core, "uninitialized code segment");
 
     print_line(state_code_segment_nid);
   } else {
     print_break_comment("zeroed code segment");
 
     print_line(init_zeroed_code_segment_nid);
+    print_line(next_zeroed_code_segment_nid);
 
-    if (initial_code_segment_nid != state_code_segment_nid) {
-      print_line(next_zeroed_code_segment_nid);
+    if (initial_code_segment_nid != state_zeroed_code_segment_nid) {
+      // conservatively estimating number of lines needed to store one byte
+      print_aligned_break_comment("loading code", log_ten(code_size * 3) + 1);
 
-      code_size_in_instructions = code_size / INSTRUCTIONSIZE;
+      while (initial_code_nid != UNUSED) {
+        print_line(initial_code_nid);
 
-      if (code_size % INSTRUCTIONSIZE > 0)
-        code_size_in_instructions = code_size_in_instructions + 1;
-
-      print_aligned_break_comment("loading code",
-        log_ten(code_size_in_instructions * 3 + 1) + 1);
-
-      i = 0;
-
-      while (i < code_size_in_instructions) {
-        if (*(initial_code_segment_nids + i) != 0)
-          print_line((uint64_t*) *(initial_code_segment_nids + i));
-
-        i = i + 1;
+        initial_code_nid = get_succ(initial_code_nid);
       }
 
-      print_break_comment("loaded code segment");
+      print_break_comment_for(core, "loaded code segment");
 
       print_line(init_code_segment_nid);
+      print_line(next_code_segment_nid);
     }
-
-    print_line(next_code_segment_nid);
   }
 }
 
@@ -3811,6 +5250,9 @@ void new_memory_state(uint64_t core) {
   uint64_t  data;
   uint64_t* vaddr_nid;
   uint64_t* data_nid;
+  uint64_t* main_memory_nid;
+
+  set_for(core, state_main_memory_nids, state_main_memory_nid);
 
   if (SYNCHRONIZED_MEMORY) {
     if (core > 0)
@@ -3822,14 +5264,19 @@ void new_memory_state(uint64_t core) {
   state_main_memory_nid = new_input(OP_STATE, SID_MEMORY_STATE,
     format_comment("core-%lu-zeroed-main-memory", core), "zeroed main memory");
 
-  init_zeroed_main_memory_nid = new_binary(OP_INIT, SID_MEMORY_STATE,
+  set_for(core, state_main_memory_nids, state_main_memory_nid);
+
+  init_zeroed_main_memory_nid = new_init(SID_MEMORY_STATE,
     state_main_memory_nid, NID_MEMORY_WORD_0, "zeroing memory");
 
-  if (CODE_LOADED) {
+  eval_init(init_zeroed_main_memory_nid);
+
+  if (number_of_binaries > 0) {
     number_of_hex_digits = round_up(MEMORY_ADDRESS_SPACE, 4) / 4;
 
-    initial_data_segment_nid = state_main_memory_nid;
-    initial_heap_segment_nid = state_main_memory_nid;
+    initial_data_nid  = UNUSED;
+    initial_heap_nid  = UNUSED;
+    initial_stack_nid = UNUSED;
 
     initial_main_memory_nid = state_main_memory_nid;
 
@@ -3837,18 +5284,12 @@ void new_memory_state(uint64_t core) {
 
     vaddr = data_start;
 
-    while (vaddr < VIRTUALMEMORYSIZE * GIGABYTE - WORDSIZE) {
-      if (vaddr == data_start + data_size) {
-        initial_data_segment_nid = initial_main_memory_nid;
-
+    while (vaddr <= VIRTUALMEMORYSIZE * GIGABYTE - WORDSIZE) {
+      if (vaddr == data_start + data_size)
         vaddr = heap_start;
-      }
 
-      if (vaddr == heap_start + heap_size) {
-        initial_heap_segment_nid = initial_data_segment_nid;
-
+      if (vaddr == heap_start + heap_size)
         vaddr = stack_start;
-      }
 
       if (is_virtual_address_mapped(get_pt(current_context), vaddr)) {
         // memory allocated but not yet mapped is assumed to be zeroed
@@ -3857,32 +5298,63 @@ void new_memory_state(uint64_t core) {
         if (data != 0) {
           // skipping zero as initial value
           vaddr_nid = new_constant(OP_CONSTH, SID_VIRTUAL_ADDRESS,
-            vaddr,
-            number_of_hex_digits,
-            format_comment("vaddr 0x%lX", vaddr));
+            vaddr, number_of_hex_digits, format_comment("vaddr 0x%lX", vaddr));
+
           data_nid = new_constant(OP_CONSTH, SID_MACHINE_WORD,
-            data,
-            0,
-            format_comment("data 0x%lX", data));
-          initial_main_memory_nid =
-            store_machine_word_at_virtual_address(vaddr_nid, data_nid, initial_main_memory_nid);
+            data, 0, format_comment("data 0x%lX", data));
+
+          main_memory_nid = store_machine_word_at_virtual_address(vaddr_nid, data_nid, initial_main_memory_nid);
+
+          if (is_virtual_address_in_data_segment(vaddr)) {
+            if (initial_data_nid == UNUSED)
+              initial_data_nid = main_memory_nid;
+          } else if (is_virtual_address_in_heap_segment(vaddr)) {
+            if (initial_heap_nid == UNUSED)
+              initial_heap_nid = main_memory_nid;
+          } else if (is_virtual_address_in_stack_segment(vaddr)) {
+            if (initial_stack_nid == UNUSED)
+              initial_stack_nid = main_memory_nid;
+          }
+
+          if (initial_main_memory_nid != state_main_memory_nid)
+            if (main_memory_nid != initial_data_nid)
+              if (main_memory_nid != initial_heap_nid)
+                if (main_memory_nid != initial_stack_nid)
+                  set_succ(initial_main_memory_nid, main_memory_nid);
+
+          initial_main_memory_nid = main_memory_nid;
+
+          // evaluate on-the-fly to avoid stack overflow later
+          if (eval_line(load_machine_word_at_virtual_address(vaddr_nid, initial_main_memory_nid)) != data) {
+            printf("%s: initial main memory value mismatch @ 0x%lX\n", selfie_name, vaddr);
+
+            exit(EXITCODE_SYSTEMERROR);
+          }
         }
       }
 
-      vaddr = vaddr + WORDSIZE;
+      if (vaddr + WORDSIZE == 0)
+        // check 32-bit overflow to terminate loop
+        vaddr = HIGHESTVIRTUALADDRESS;
+      else
+        vaddr = vaddr + WORDSIZE;
     }
 
     reuse_lines = 1;
 
     if (initial_main_memory_nid != state_main_memory_nid) {
-      next_zeroed_main_memory_nid = new_binary(OP_NEXT, SID_MEMORY_STATE,
+      next_zeroed_main_memory_nid = new_next(SID_MEMORY_STATE,
         state_main_memory_nid, state_main_memory_nid, "read-only zeroed main memory");
 
       state_main_memory_nid = new_input(OP_STATE, SID_MEMORY_STATE,
         format_comment("core-%lu-loaded-main-memory", core), "loaded main memory");
 
-      init_main_memory_nid = new_binary(OP_INIT, SID_MEMORY_STATE,
+      set_for(core, state_main_memory_nids, state_main_memory_nid);
+
+      init_main_memory_nid = new_init(SID_MEMORY_STATE,
         state_main_memory_nid, initial_main_memory_nid, "loaded data");
+
+      eval_init(init_main_memory_nid);
     } else
       init_main_memory_nid = init_zeroed_main_memory_nid;
   }
@@ -3896,35 +5368,46 @@ void print_memory_state(uint64_t core) {
     if (core > 0)
       return;
 
-  print_break_comment("zeroed main memory");
+  print_break_comment_for(core, "zeroed main memory");
 
   print_line(init_zeroed_main_memory_nid);
 
-  if (CODE_LOADED)
+  if (number_of_binaries > 0)
     if (initial_main_memory_nid != state_main_memory_nid) {
       print_line(next_zeroed_main_memory_nid);
 
-      // assert: data_size > 0 and non-zero data in data segment
+      if (initial_data_nid != UNUSED) {
+        // conservatively estimating number of lines needed to store one byte
+        print_aligned_break_comment("loaded data segment", log_ten(data_size * 3) + 1);
 
-      // conservatively estimating number of lines needed to store one byte
-      print_aligned_break_comment("loaded data segment",
-        log_ten((data_size + heap_size + stack_size) * 5) + 1);
+        while (initial_data_nid != UNUSED) {
+          print_line(initial_data_nid);
 
-      print_line(initial_data_segment_nid);
-
-      if (initial_heap_segment_nid != initial_data_segment_nid) {
-        print_break_comment("loaded heap segment");
-
-        print_line(initial_heap_segment_nid);
+          initial_data_nid = get_succ(initial_data_nid);
+        }
       }
 
-      if (initial_main_memory_nid != initial_heap_segment_nid) {
-        print_break_comment("loaded stack segment");
+      if (initial_heap_nid != UNUSED) {
+        print_aligned_break_comment("loaded heap segment", log_ten(heap_initial_size * 3) + 1);
 
-        print_line(initial_main_memory_nid);
+        while (initial_heap_nid != UNUSED) {
+          print_line(initial_heap_nid);
+
+          initial_heap_nid = get_succ(initial_heap_nid);
+        }
       }
 
-      print_break_comment("loaded main memory");
+      if (initial_stack_nid != UNUSED) {
+        print_aligned_break_comment("loaded stack segment", log_ten(stack_initial_size * 3) + 1);
+
+        while (initial_stack_nid != UNUSED) {
+          print_line(initial_stack_nid);
+
+          initial_stack_nid = get_succ(initial_stack_nid);
+        }
+      }
+
+      print_break_comment_for(core, "loaded main memory");
 
       print_line(init_main_memory_nid);
     }
@@ -3954,19 +5437,19 @@ uint64_t* get_memory_word_sort(uint64_t* memory_nid) {
 }
 
 uint64_t is_byte_memory(uint64_t* memory_nid) {
-  return eval_array_element_size(get_sid(memory_nid)) == 8;
+  return eval_element_size(get_sid(memory_nid)) == 8;
 }
 
 uint64_t is_half_word_memory(uint64_t* memory_nid) {
-  return eval_array_element_size(get_sid(memory_nid)) == HALFWORDSIZEINBITS;
+  return eval_element_size(get_sid(memory_nid)) == HALFWORDSIZEINBITS;
 }
 
 uint64_t is_single_word_memory(uint64_t* memory_nid) {
-  return eval_array_element_size(get_sid(memory_nid)) == SINGLEWORDSIZEINBITS;
+  return eval_element_size(get_sid(memory_nid)) == SINGLEWORDSIZEINBITS;
 }
 
 uint64_t is_double_word_memory(uint64_t* memory_nid) {
-  return eval_array_element_size(get_sid(memory_nid)) == DOUBLEWORDSIZEINBITS;
+  return eval_element_size(get_sid(memory_nid)) == DOUBLEWORDSIZEINBITS;
 }
 
 uint64_t* vaddr_to_paddr(uint64_t* vaddr_nid, uint64_t* memory_nid) {
@@ -3985,7 +5468,7 @@ uint64_t* vaddr_to_paddr(uint64_t* vaddr_nid, uint64_t* memory_nid) {
       return vaddr_nid;
 
   memory_word_size_in_bytes =
-    get_power_of_two_size_in_bytes(eval_array_element_size(get_sid(memory_nid)));
+    get_power_of_two_size_in_bytes(eval_element_size(get_sid(memory_nid)));
 
   return new_slice(get_memory_address_sort(memory_nid), vaddr_nid,
     memory_address_space - 1 + log_two(memory_word_size_in_bytes),
@@ -4376,7 +5859,7 @@ uint64_t* load_single_word_from_memory_words(uint64_t* vaddr_nid, uint64_t* memo
 uint64_t* store_single_word_in_memory_words(uint64_t* vaddr_nid, uint64_t* word_nid, uint64_t* memory_nid) {
   if (get_op(vaddr_nid) == OP_CONSTH)
     // optimizes boot loading
-    if ((uint64_t) get_arg1(vaddr_nid) % SINGLEWORDSIZE == 0)
+    if (eval_constant_value(vaddr_nid) % SINGLEWORDSIZE == 0)
       return store_aligned_memory_word(vaddr_nid,
         insert_value_into_memory_word(vaddr_nid, word_nid, memory_nid),
         memory_nid);
@@ -4451,7 +5934,7 @@ uint64_t* load_double_word_from_memory_words(uint64_t* vaddr_nid, uint64_t* memo
 uint64_t* store_double_word_in_memory_words(uint64_t* vaddr_nid, uint64_t* word_nid, uint64_t* memory_nid) {
   if (get_op(vaddr_nid) == OP_CONSTH)
     // optimizes boot loading
-    if ((uint64_t) get_arg1(vaddr_nid) % DOUBLEWORDSIZE == 0)
+    if (eval_constant_value(vaddr_nid) % DOUBLEWORDSIZE == 0)
       return store_aligned_memory_word(vaddr_nid, word_nid, memory_nid);
 
   return new_ternary(OP_ITE, get_sid(memory_nid),
@@ -4567,7 +6050,7 @@ uint64_t* does_machine_word_work_as_virtual_address(uint64_t* machine_word_nid, 
     return property_nid;
 }
 
-uint64_t* is_address_in_code_segment(uint64_t* machine_word_nid) {
+uint64_t* is_address_in_machine_word_in_code_segment(uint64_t* machine_word_nid) {
   uint64_t* vaddr_nid;
 
   vaddr_nid = cast_machine_word_to_virtual_address(machine_word_nid);
@@ -4576,7 +6059,7 @@ uint64_t* is_address_in_code_segment(uint64_t* machine_word_nid) {
     is_block_in_code_segment(vaddr_nid, vaddr_nid));
 }
 
-uint64_t* is_address_in_data_segment(uint64_t* machine_word_nid) {
+uint64_t* is_address_in_machine_word_in_data_segment(uint64_t* machine_word_nid) {
   uint64_t* vaddr_nid;
 
   vaddr_nid = cast_machine_word_to_virtual_address(machine_word_nid);
@@ -4585,7 +6068,7 @@ uint64_t* is_address_in_data_segment(uint64_t* machine_word_nid) {
     is_block_in_data_segment(vaddr_nid, vaddr_nid));
 }
 
-uint64_t* is_address_in_heap_segment(uint64_t* machine_word_nid) {
+uint64_t* is_address_in_machine_word_in_heap_segment(uint64_t* machine_word_nid) {
   uint64_t* vaddr_nid;
 
   vaddr_nid = cast_machine_word_to_virtual_address(machine_word_nid);
@@ -4594,7 +6077,7 @@ uint64_t* is_address_in_heap_segment(uint64_t* machine_word_nid) {
     is_block_in_heap_segment(vaddr_nid, vaddr_nid));
 }
 
-uint64_t* is_address_in_stack_segment(uint64_t* machine_word_nid) {
+uint64_t* is_address_in_machine_word_in_stack_segment(uint64_t* machine_word_nid) {
   uint64_t* vaddr_nid;
 
   vaddr_nid = cast_machine_word_to_virtual_address(machine_word_nid);
@@ -4603,7 +6086,7 @@ uint64_t* is_address_in_stack_segment(uint64_t* machine_word_nid) {
     is_block_in_stack_segment(vaddr_nid, vaddr_nid));
 }
 
-uint64_t* is_address_in_main_memory(uint64_t* machine_word_nid) {
+uint64_t* is_address_in_machine_word_in_main_memory(uint64_t* machine_word_nid) {
   uint64_t* vaddr_nid;
 
   vaddr_nid = cast_machine_word_to_virtual_address(machine_word_nid);
@@ -4618,7 +6101,7 @@ uint64_t* is_address_in_main_memory(uint64_t* machine_word_nid) {
       "virtual address in data, heap, or stack segment?"));
 }
 
-uint64_t* is_range_in_heap_segment(uint64_t* machine_word_nid, uint64_t* range_nid) {
+uint64_t* is_range_in_machine_word_in_heap_segment(uint64_t* machine_word_nid, uint64_t* range_nid) {
   uint64_t* range_end_nid;
   uint64_t* start_nid;
   uint64_t* end_nid;
@@ -4688,6 +6171,74 @@ uint64_t* fetch_compressed_instruction(uint64_t* pc_nid, uint64_t* code_segment_
 // -----------------------------------------------------------------
 // ------------------------- INSTRUCTIONS --------------------------
 // -----------------------------------------------------------------
+
+char* get_instruction_mnemonic(uint64_t instruction_ID) {
+  return (char*) *(RISC_V_MNEMONICS + instruction_ID);
+}
+
+uint64_t is_R_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_ADD)
+    if (instruction_ID <= ID_REMUW)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_I_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_JALR)
+    if (instruction_ID <= ID_SRAIW)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_register_relative_I_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_JALR)
+    if (instruction_ID <= ID_LD)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_shift_I_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_SLLI)
+    if (instruction_ID <= ID_SRAIW)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_32_bit_shift_I_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_SLLIW)
+    if (instruction_ID <= ID_SRAIW)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_S_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_SB)
+    if (instruction_ID <= ID_SD)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_SB_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_BEQ)
+    if (instruction_ID <= ID_BGEU)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_U_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_LUI)
+    if (instruction_ID <= ID_AUIPC)
+      return 1;
+
+  return 0;
+}
 
 uint64_t* get_instruction_opcode(uint64_t* ir_nid) {
   return new_slice(SID_OPCODE, ir_nid, 6, 0, "get opcode");
@@ -4844,21 +6395,6 @@ uint64_t* decode_funct3(uint64_t* sid, uint64_t* ir_nid,
     execute_comment);
 }
 
-uint64_t* decode_funct3_conditional(uint64_t* sid, uint64_t* ir_nid,
-  uint64_t* funct3_nid, char* funct3_comment,
-  uint64_t* evaluate_nid, uint64_t* branch_nid, uint64_t* continue_nid, char* branch_comment,
-  uint64_t* other_funct3_nid) {
-  return decode_funct3(sid, ir_nid,
-    funct3_nid, funct3_comment,
-    new_ternary(OP_ITE, sid,
-      evaluate_nid,
-      branch_nid,
-      continue_nid,
-      branch_comment),
-    "evaluate branch condition if funct3 matches",
-    other_funct3_nid);
-}
-
 uint64_t* decode_funct7(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* funct7_nid, char* funct7_comment,
   uint64_t* execute_nid, char* execute_comment,
@@ -4966,13 +6502,20 @@ uint64_t* decode_shift_imm(uint64_t* sid, uint64_t* ir_nid,
       no_funct_nid));
 }
 
-uint64_t* decode_illegal_shamt(uint64_t* ir_nid) {
+uint64_t* is_enabled(uint64_t* instruction_nid) {
+  if (instruction_nid != NID_DISABLED)
+    return new_binary_boolean(OP_NEQ, instruction_nid, NID_DISABLED, "is instruction enabled?");
+  else
+    return NID_FALSE;
+}
+
+uint64_t* is_illegal_shamt(uint64_t* ir_nid) {
   if (IS64BITTARGET)
     return decode_opcode(SID_BOOLEAN, ir_nid,
       NID_OP_IMM_32, "IMM-32?",
       decode_shift_RV64I(SID_BOOLEAN, ir_nid,
-        NID_F7_SLL_SRL_ILLEGAL, NID_SLLIW, NID_SRLIW,
-        NID_F7_SRA_ILLEGAL, NID_SRAIW, "there?",
+        NID_F7_SLL_SRL_ILLEGAL, is_enabled(NID_SLLIW), is_enabled(NID_SRLIW),
+        NID_F7_SRA_ILLEGAL, is_enabled(NID_SRAIW), "there?",
         NID_FALSE),
       "illegal shamt there?",
       NID_FALSE);
@@ -4980,8 +6523,8 @@ uint64_t* decode_illegal_shamt(uint64_t* ir_nid) {
     return decode_opcode(SID_BOOLEAN, ir_nid,
       NID_OP_IMM, "IMM?",
       decode_shift_imm(SID_BOOLEAN, ir_nid,
-        NID_F7_SLL_SRL_ILLEGAL, NID_C_SLLI, NID_SRLI,
-        NID_F7_SRA_ILLEGAL, NID_SRAI, "there?",
+        NID_F7_SLL_SRL_ILLEGAL, is_enabled(NID_SLLI), is_enabled(NID_SRLI),
+        NID_F7_SRA_ILLEGAL, is_enabled(NID_SRAI), "there?",
         NID_FALSE),
       "illegal shamt there?",
       NID_FALSE);
@@ -5265,7 +6808,7 @@ uint64_t* decode_RV64M(uint64_t* sid, uint64_t* ir_nid,
     return no_funct_nid;
 }
 
-uint64_t* decode_division_remainder_by_zero(uint64_t* ir_nid, uint64_t* register_file_nid) {
+uint64_t* is_division_remainder_by_zero(uint64_t* ir_nid, uint64_t* register_file_nid) {
   uint64_t* RV64M_nid;
   uint64_t* RV32M_nid;
 
@@ -5275,7 +6818,8 @@ uint64_t* decode_division_remainder_by_zero(uint64_t* ir_nid, uint64_t* register
         NID_OP_OP, "OP?",
         decode_RV32M(SID_BOOLEAN, ir_nid,
           NID_FALSE, NID_FALSE, NID_FALSE, NID_FALSE,
-          NID_FALSE, NID_DIVU, NID_FALSE, NID_REMU, "active?",
+          NID_FALSE, is_enabled(NID_DIVU),
+          NID_FALSE, is_enabled(NID_REMU), "active?",
           NID_FALSE),
         "divu or remu active?",
         NID_FALSE);
@@ -5285,7 +6829,8 @@ uint64_t* decode_division_remainder_by_zero(uint64_t* ir_nid, uint64_t* register
           NID_OP_OP_32, "OP-32?",
           decode_RV64M(SID_BOOLEAN, ir_nid,
             NID_FALSE,
-            NID_DIVW, NID_DIVUW, NID_REMW, NID_REMUW, "active?",
+            is_enabled(NID_DIVW), is_enabled(NID_DIVUW),
+            is_enabled(NID_REMW), is_enabled(NID_REMUW), "active?",
             NID_FALSE),
           "divw or divuw or remw or remuw active?",
           NID_FALSE);
@@ -5297,7 +6842,8 @@ uint64_t* decode_division_remainder_by_zero(uint64_t* ir_nid, uint64_t* register
           NID_OP_OP, "OP?",
           decode_RV32M(SID_BOOLEAN, ir_nid,
             NID_FALSE, NID_FALSE, NID_FALSE, NID_FALSE,
-            NID_DIV, NID_DIVU, NID_REM, NID_REMU, "active?",
+            is_enabled(NID_DIV), is_enabled(NID_DIVU),
+            is_enabled(NID_REM), is_enabled(NID_REMU), "active?",
             NID_FALSE),
           "div or divu or rem or remu active?",
           RV64M_nid);
@@ -5316,7 +6862,7 @@ uint64_t* decode_division_remainder_by_zero(uint64_t* ir_nid, uint64_t* register
     return UNUSED;
 }
 
-uint64_t* decode_signed_division_remainder_overflow(uint64_t* ir_nid, uint64_t* register_file_nid) {
+uint64_t* is_signed_division_remainder_overflow(uint64_t* ir_nid, uint64_t* register_file_nid) {
   uint64_t* rs1_value_nid;
   uint64_t* rs2_value_nid;
 
@@ -5340,7 +6886,8 @@ uint64_t* decode_signed_division_remainder_overflow(uint64_t* ir_nid, uint64_t* 
           new_binary_boolean(OP_AND,
             decode_RV64M(SID_BOOLEAN, ir_nid,
               NID_FALSE,
-              NID_DIVW, NID_FALSE, NID_REMW, NID_FALSE, "active?",
+              is_enabled(NID_DIVW), NID_FALSE,
+              is_enabled(NID_REMW), NID_FALSE, "active?",
               NID_FALSE),
             new_binary_boolean(OP_AND,
               new_binary_boolean(OP_EQ,
@@ -5364,7 +6911,8 @@ uint64_t* decode_signed_division_remainder_overflow(uint64_t* ir_nid, uint64_t* 
           new_binary_boolean(OP_AND,
             decode_RV32M(SID_BOOLEAN, ir_nid,
               NID_FALSE, NID_FALSE, NID_FALSE, NID_FALSE,
-              NID_DIV, NID_FALSE, NID_REM, NID_FALSE, "active?",
+              is_enabled(NID_DIV), NID_FALSE,
+              is_enabled(NID_REM), NID_FALSE, "active?",
               NID_FALSE),
             new_binary_boolean(OP_AND,
               new_binary_boolean(OP_EQ,
@@ -5516,39 +7064,38 @@ uint64_t* decode_store(uint64_t* sid, uint64_t* ir_nid,
 uint64_t* decode_branch(uint64_t* sid, uint64_t* ir_nid,
   uint64_t* beq_nid, uint64_t* bne_nid,
   uint64_t* blt_nid, uint64_t* bge_nid,
-  uint64_t* bltu_nid, uint64_t* bgeu_nid,
-  uint64_t* branch_nid, uint64_t* continue_nid, char* comment,
+  uint64_t* bltu_nid, uint64_t* bgeu_nid, char* comment,
   uint64_t* no_funct3_nid, uint64_t* other_opcode_nid) {
   if (RISCU)
     return decode_opcode(sid, ir_nid,
       NID_OP_BRANCH, "BRANCH?",
-      decode_funct3_conditional(sid, ir_nid,
+      decode_funct3(sid, ir_nid,
         NID_F3_BEQ, "BEQ?",
-        beq_nid, branch_nid, continue_nid, format_comment("beq %s", (uint64_t) comment),
+        beq_nid, format_comment("beq %s", (uint64_t) comment),
         no_funct3_nid),
       format_comment("branch %s", (uint64_t) comment),
       other_opcode_nid);
 
   return decode_opcode(sid, ir_nid,
     NID_OP_BRANCH, "BRANCH?",
-    decode_funct3_conditional(sid, ir_nid,
+    decode_funct3(sid, ir_nid,
       NID_F3_BEQ, "BEQ?",
-      beq_nid, branch_nid, continue_nid, format_comment("beq %s", (uint64_t) comment),
-      decode_funct3_conditional(sid, ir_nid,
+      beq_nid, format_comment("beq %s", (uint64_t) comment),
+      decode_funct3(sid, ir_nid,
         NID_F3_BNE, "BNE?",
-        bne_nid, branch_nid, continue_nid, format_comment("bne %s", (uint64_t) comment),
-        decode_funct3_conditional(sid, ir_nid,
+        bne_nid, format_comment("bne %s", (uint64_t) comment),
+        decode_funct3(sid, ir_nid,
           NID_F3_BLT, "BLT?",
-          blt_nid, branch_nid, continue_nid, format_comment("blt %s", (uint64_t) comment),
-          decode_funct3_conditional(sid, ir_nid,
+          blt_nid, format_comment("blt %s", (uint64_t) comment),
+          decode_funct3(sid, ir_nid,
             NID_F3_BGE, "BGE?",
-            bge_nid, branch_nid, continue_nid, format_comment("bge %s", (uint64_t) comment),
-            decode_funct3_conditional(sid, ir_nid,
+            bge_nid, format_comment("bge %s", (uint64_t) comment),
+            decode_funct3(sid, ir_nid,
               NID_F3_BLTU, "BLTU?",
-              bltu_nid, branch_nid, continue_nid, format_comment("bltu %s", (uint64_t) comment),
-              decode_funct3_conditional(sid, ir_nid,
+              bltu_nid, format_comment("bltu %s", (uint64_t) comment),
+              decode_funct3(sid, ir_nid,
                 NID_F3_BGEU, "BGEU?",
-                bgeu_nid, branch_nid, continue_nid, format_comment("bgeu %s", (uint64_t) comment),
+                bgeu_nid, format_comment("bgeu %s", (uint64_t) comment),
                 no_funct3_nid)))))),
     format_comment("branch %s", (uint64_t) comment),
     other_opcode_nid);
@@ -5577,10 +7124,10 @@ uint64_t* decode_jalr(uint64_t* sid, uint64_t* ir_nid,
 }
 
 uint64_t* decode_instruction(uint64_t* ir_nid) {
-  return new_ternary(OP_ITE, SID_BOOLEAN,
+  return new_ternary(OP_ITE, SID_INSTRUCTION_ID,
     new_binary_boolean(OP_EQ, ir_nid, NID_ECALL_I, "ir == ECALL?"),
     NID_ECALL,
-    decode_imm(SID_BOOLEAN, ir_nid,
+    decode_imm(SID_INSTRUCTION_ID, ir_nid,
       NID_ADDI,
       NID_SLTI,
       NID_SLTIU,
@@ -5594,8 +7141,8 @@ uint64_t* decode_instruction(uint64_t* ir_nid) {
       NID_SLLIW,
       NID_SRLIW,
       NID_SRAIW,
-      "known?", NID_FALSE,
-      decode_op(SID_BOOLEAN, ir_nid,
+      "known?", NID_DISABLED,
+      decode_op(SID_INSTRUCTION_ID, ir_nid,
         NID_ADD,
         NID_SUB,
         NID_SLT,
@@ -5611,8 +7158,8 @@ uint64_t* decode_instruction(uint64_t* ir_nid) {
         NID_SLLW,
         NID_SRLW,
         NID_SRAW,
-        "known?", NID_FALSE,
-        decode_RV32M(SID_BOOLEAN, ir_nid,
+        "known?", NID_DISABLED,
+        decode_RV32M(SID_INSTRUCTION_ID, ir_nid,
           NID_MUL,
           NID_MULH,
           NID_MULHSU,
@@ -5621,37 +7168,37 @@ uint64_t* decode_instruction(uint64_t* ir_nid) {
           NID_DIVU,
           NID_REM,
           NID_REMU,
-          "known?", NID_FALSE),
-        decode_RV64M(SID_BOOLEAN, ir_nid,
+          "known?", NID_DISABLED),
+        decode_RV64M(SID_INSTRUCTION_ID, ir_nid,
           NID_MULW,
           NID_DIVW,
           NID_DIVUW,
           NID_REMW,
           NID_REMUW,
-          "known?", NID_FALSE),
-        decode_load(SID_BOOLEAN, ir_nid,
+          "known?", NID_DISABLED),
+        decode_load(SID_INSTRUCTION_ID, ir_nid,
           NID_LD, NID_LWU,
           NID_LW,
           NID_LH, NID_LHU,
           NID_LB, NID_LBU,
-          "known?", NID_FALSE,
-          decode_store(SID_BOOLEAN, ir_nid,
+          "known?", NID_DISABLED,
+          decode_store(SID_INSTRUCTION_ID, ir_nid,
             NID_SD,
-            NID_SW, NID_SH, NID_SB, "known?", NID_FALSE,
-            decode_branch(SID_BOOLEAN, ir_nid,
+            NID_SW, NID_SH, NID_SB, "known?", NID_DISABLED,
+            decode_branch(SID_INSTRUCTION_ID, ir_nid,
               NID_BEQ, NID_BNE,
               NID_BLT, NID_BGE,
               NID_BLTU, NID_BGEU,
-              NID_TRUE, NID_FALSE, "known?", NID_FALSE,
-              decode_jal(SID_BOOLEAN, ir_nid,
+              "known?", NID_DISABLED,
+              decode_jal(SID_INSTRUCTION_ID, ir_nid,
                 NID_JAL, "known?",
-                decode_jalr(SID_BOOLEAN, ir_nid,
-                  NID_JALR, "known?", NID_FALSE,
-                  decode_lui(SID_BOOLEAN, ir_nid,
+                decode_jalr(SID_INSTRUCTION_ID, ir_nid,
+                  NID_JALR, "known?", NID_DISABLED,
+                  decode_lui(SID_INSTRUCTION_ID, ir_nid,
                     NID_LUI, "known?",
-                    decode_auipc(SID_BOOLEAN, ir_nid,
+                    decode_auipc(SID_INSTRUCTION_ID, ir_nid,
                       NID_AUIPC, "known?",
-                      NID_FALSE))))))))),
+                      NID_DISABLED))))))))),
     "ecall known?");
 }
 
@@ -5964,8 +7511,8 @@ uint64_t* load_no_seg_faults(uint64_t* ir_nid, uint64_t* register_file_nid) {
     is_sized_block_in_main_memory(get_rs1_value_plus_I_immediate(ir_nid, register_file_nid), NID_VIRTUAL_SINGLE_WORD_SIZE_MINUS_1),
     is_sized_block_in_main_memory(get_rs1_value_plus_I_immediate(ir_nid, register_file_nid), NID_VIRTUAL_HALF_WORD_SIZE_MINUS_1),
     is_sized_block_in_main_memory(get_rs1_value_plus_I_immediate(ir_nid, register_file_nid), NID_VIRTUAL_HALF_WORD_SIZE_MINUS_1),
-    is_address_in_main_memory(get_rs1_value_plus_I_immediate(ir_nid, register_file_nid)),
-    is_address_in_main_memory(get_rs1_value_plus_I_immediate(ir_nid, register_file_nid)),
+    is_address_in_machine_word_in_main_memory(get_rs1_value_plus_I_immediate(ir_nid, register_file_nid)),
+    is_address_in_machine_word_in_main_memory(get_rs1_value_plus_I_immediate(ir_nid, register_file_nid)),
     "no-seg-faults",
     NID_TRUE,
     NID_TRUE);
@@ -6021,20 +7568,20 @@ uint64_t* core_register_data_flow(uint64_t* pc_nid, uint64_t* ir_nid,
   uint64_t* rd_nid;
   uint64_t* rd_value_nid;
 
-  uint64_t* no_register_data_flow_nid;
+  uint64_t* register_data_flow_nid;
 
   opcode_nid = get_instruction_opcode(ir_nid);
 
   rd_nid       = get_instruction_rd(ir_nid);
   rd_value_nid = load_register_value(rd_nid, "current rd value", register_file_nid);
 
-  no_register_data_flow_nid = new_binary_boolean(OP_OR,
-    new_binary_boolean(OP_EQ, rd_nid, NID_ZR, "rd == register zero?"),
-    new_binary_boolean(OP_OR,
-      new_binary_boolean(OP_EQ, opcode_nid, NID_OP_STORE, "opcode == STORE?"),
-      new_binary_boolean(OP_EQ, opcode_nid, NID_OP_BRANCH, "opcode == BRANCH?"),
-      "STORE or BRANCH?"), // redundant
-    "rd == zero register or STORE or BRANCH?");
+  register_data_flow_nid = new_binary_boolean(OP_AND,
+    new_binary_boolean(OP_NEQ, rd_nid, NID_ZR, "rd != register zero?"),
+    new_binary_boolean(OP_AND,
+      new_binary_boolean(OP_NEQ, opcode_nid, NID_OP_STORE, "opcode != STORE?"),
+      new_binary_boolean(OP_NEQ, opcode_nid, NID_OP_BRANCH, "opcode != BRANCH?"),
+      "not STORE and not BRANCH?"), // redundant
+    "rd != zero register and not STORE and not BRANCH?");
 
   rd_value_nid =
     imm_data_flow(ir_nid, register_file_nid,
@@ -6046,10 +7593,10 @@ uint64_t* core_register_data_flow(uint64_t* pc_nid, uint64_t* ir_nid,
                 auipc_data_flow(pc_nid, ir_nid, rd_value_nid)))))));
 
   return new_ternary(OP_ITE, SID_REGISTER_STATE,
-    no_register_data_flow_nid,
-    register_file_nid,
+    register_data_flow_nid,
     store_register_value(rd_nid, rd_value_nid, "rd update", register_file_nid),
-    "update non-zero register");
+    register_file_nid,
+    "register data flow");
 }
 
 uint64_t* get_rs1_value_plus_S_immediate(uint64_t* ir_nid, uint64_t* register_file_nid) {
@@ -6087,7 +7634,7 @@ uint64_t* store_no_seg_faults(uint64_t* ir_nid, uint64_t* register_file_nid) {
     is_sized_block_in_main_memory(get_rs1_value_plus_S_immediate(ir_nid, register_file_nid), NID_VIRTUAL_DOUBLE_WORD_SIZE_MINUS_1),
     is_sized_block_in_main_memory(get_rs1_value_plus_S_immediate(ir_nid, register_file_nid), NID_VIRTUAL_SINGLE_WORD_SIZE_MINUS_1),
     is_sized_block_in_main_memory(get_rs1_value_plus_S_immediate(ir_nid, register_file_nid), NID_VIRTUAL_HALF_WORD_SIZE_MINUS_1),
-    is_address_in_main_memory(get_rs1_value_plus_S_immediate(ir_nid, register_file_nid)),
+    is_address_in_machine_word_in_main_memory(get_rs1_value_plus_S_immediate(ir_nid, register_file_nid)),
     "no-seg-faults",
     NID_TRUE,
     NID_TRUE);
@@ -6104,6 +7651,14 @@ uint64_t* get_pc_value_plus_SB_immediate(uint64_t* pc_nid, uint64_t* ir_nid) {
     "pc value + SB-immediate");
 }
 
+uint64_t* execute_branch(uint64_t* pc_nid, uint64_t* ir_nid, uint64_t* condition_nid) {
+  return new_ternary(OP_ITE, SID_MACHINE_WORD,
+    condition_nid,
+    get_pc_value_plus_SB_immediate(pc_nid, ir_nid),
+    get_pc_value_plus_4(pc_nid),
+    "evaluate branch condition");
+}
+
 uint64_t* branch_control_flow(uint64_t* pc_nid, uint64_t* ir_nid, uint64_t* register_file_nid, uint64_t* other_control_flow_nid) {
   uint64_t* rs1_value_nid;
   uint64_t* rs2_value_nid;
@@ -6112,14 +7667,18 @@ uint64_t* branch_control_flow(uint64_t* pc_nid, uint64_t* ir_nid, uint64_t* regi
   rs2_value_nid = load_register_value(get_instruction_rs2(ir_nid), "rs2 value", register_file_nid);
 
   return decode_branch(SID_MACHINE_WORD, ir_nid,
-    new_binary_boolean(OP_EQ, rs1_value_nid, rs2_value_nid, "rs1 value == rs2 value?"),
-    new_binary_boolean(OP_NEQ, rs1_value_nid, rs2_value_nid, "rs1 value != rs2 value?"),
-    new_binary_boolean(OP_SLT, rs1_value_nid, rs2_value_nid, "rs1 value < rs2 value?"),
-    new_binary_boolean(OP_SGTE, rs1_value_nid, rs2_value_nid, "rs1 value >= rs2 value?"),
-    new_binary_boolean(OP_ULT, rs1_value_nid, rs2_value_nid, "rs1 value < rs2 value (unsigned)?"),
-    new_binary_boolean(OP_UGTE, rs1_value_nid, rs2_value_nid, "rs1 value >= rs2 value (unsigned)?"),
-    get_pc_value_plus_SB_immediate(pc_nid, ir_nid),
-    get_pc_value_plus_4(pc_nid),
+    execute_branch(pc_nid, ir_nid,
+      new_binary_boolean(OP_EQ, rs1_value_nid, rs2_value_nid, "rs1 value == rs2 value?")),
+    execute_branch(pc_nid, ir_nid,
+      new_binary_boolean(OP_NEQ, rs1_value_nid, rs2_value_nid, "rs1 value != rs2 value?")),
+    execute_branch(pc_nid, ir_nid,
+      new_binary_boolean(OP_SLT, rs1_value_nid, rs2_value_nid, "rs1 value < rs2 value?")),
+    execute_branch(pc_nid, ir_nid,
+      new_binary_boolean(OP_SGTE, rs1_value_nid, rs2_value_nid, "rs1 value >= rs2 value?")),
+    execute_branch(pc_nid, ir_nid,
+      new_binary_boolean(OP_ULT, rs1_value_nid, rs2_value_nid, "rs1 value < rs2 value (unsigned)?")),
+    execute_branch(pc_nid, ir_nid,
+      new_binary_boolean(OP_UGTE, rs1_value_nid, rs2_value_nid, "rs1 value >= rs2 value (unsigned)?")),
     "pc-relative control flow",
     pc_nid,
     other_control_flow_nid);
@@ -6159,6 +7718,78 @@ uint64_t* core_control_flow(uint64_t* pc_nid, uint64_t* ir_nid, uint64_t* regist
 }
 
 // compressed instructions
+
+uint64_t is_compressed_instruction_ID(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_MV)
+    if (instruction_ID <= ID_C_JAL)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_CR_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_MV)
+    if (instruction_ID <= ID_C_JALR)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_jump_CR_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_JR)
+    if (instruction_ID <= ID_C_JALR)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_CI_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_LI)
+    if (instruction_ID <= ID_C_LDSP)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_CL_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_LW)
+    if (instruction_ID <= ID_C_LD)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_CS_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_SW)
+    if (instruction_ID <= ID_C_SDSP)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_register_CS_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_SUB)
+    if (instruction_ID <= ID_C_SUBW)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_CB_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_BEQZ)
+    if (instruction_ID <= ID_C_SRAI)
+      return 1;
+
+  return 0;
+}
+
+uint64_t is_CJ_type(uint64_t instruction_ID) {
+  if (instruction_ID >= ID_C_J)
+    if (instruction_ID <= ID_C_JAL)
+      return 1;
+
+  return 0;
+}
 
 uint64_t* get_compressed_instruction_opcode(uint64_t* c_ir_nid) {
   return new_slice(SID_OPCODE_C, c_ir_nid, 1, 0, "get compressed opcode");
@@ -6469,21 +8100,6 @@ uint64_t* decode_compressed_funct3(uint64_t* sid, uint64_t* c_ir_nid,
     execute_comment);
 }
 
-uint64_t* decode_compressed_funct3_conditional(uint64_t* sid, uint64_t* c_ir_nid,
-  uint64_t* c_funct3_nid, char* c_funct3_comment,
-  uint64_t* evaluate_nid, uint64_t* branch_nid, uint64_t* continue_nid, char* branch_comment,
-  uint64_t* other_c_funct3_nid) {
-  return decode_compressed_funct3(sid, c_ir_nid,
-    c_funct3_nid, c_funct3_comment,
-    new_ternary(OP_ITE, sid,
-      evaluate_nid,
-      branch_nid,
-      continue_nid,
-      branch_comment),
-    "evaluate branch condition if compressed funct3 matches",
-    other_c_funct3_nid);
-}
-
 uint64_t* decode_compressed_funct2(uint64_t* sid, uint64_t* c_ir_nid,
   uint64_t* c_funct2_nid, char* c_funct2_comment,
   uint64_t* execute_nid, char* execute_comment,
@@ -6616,11 +8232,11 @@ uint64_t* is_illegal_compressed_shift(uint64_t* c_ir_nid, uint64_t* c_shift_nid)
 
   return new_binary_boolean(OP_AND,
     illegal_shamt_nid,
-    c_shift_nid,
+    is_enabled(c_shift_nid),
     "compressed shift with illegal shamt?");
 }
 
-uint64_t* decode_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid) {
+uint64_t* is_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid) {
   uint64_t* c_lui_nid;
   uint64_t* c_addi_nid;
   uint64_t* c_addi16sp_nid;
@@ -6628,7 +8244,7 @@ uint64_t* decode_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid) {
 
   if (RVC) {
     c_lui_nid = new_binary_boolean(OP_AND,
-      NID_C_LUI,
+      is_enabled(NID_C_LUI),
       new_binary_boolean(OP_EQ,
         get_compressed_instruction_CUI_immediate(c_ir_nid),
         NID_MACHINE_WORD_0,
@@ -6636,7 +8252,7 @@ uint64_t* decode_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid) {
       "c.lui with CUI-immediate == 0?");
 
     c_addi_nid = new_binary_boolean(OP_AND,
-      NID_C_ADDI,
+      is_enabled(NID_C_ADDI),
       new_binary_boolean(OP_AND,
         new_binary_boolean(OP_NEQ,
           get_compressed_instruction_rd(c_ir_nid),
@@ -6650,7 +8266,7 @@ uint64_t* decode_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid) {
       "c.addi with compressed rd != zero and CI-immediate == 0?");
 
     c_addi16sp_nid = new_binary_boolean(OP_AND,
-      NID_C_ADDI16SP,
+      is_enabled(NID_C_ADDI16SP),
       new_binary_boolean(OP_EQ,
         get_compressed_instruction_CI16SP_immediate(c_ir_nid),
         NID_MACHINE_WORD_0,
@@ -6658,16 +8274,16 @@ uint64_t* decode_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid) {
       "c.addi16sp with CI16SP-immediate == 0?");
 
     c_addi4spn_nid = new_binary_boolean(OP_AND,
-      NID_C_ADDI4SPN,
+      is_enabled(NID_C_ADDI4SPN),
       new_binary_boolean(OP_EQ,
         get_compressed_instruction_CIW_immediate(c_ir_nid),
         NID_MACHINE_WORD_0,
         "CIW-immediate == 0?"),
       "c.addi4spn with CIW-immediate == 0?");
 
-    return new_ternary(OP_ITE, SID_BOOLEAN,
+    return new_binary_boolean(OP_AND,
       is_compressed_instruction(c_ir_nid),
-      new_ternary(OP_ITE, SID_BOOLEAN,
+      new_binary_boolean(OP_IMPLIES,
         new_binary_boolean(OP_NEQ,
           c_ir_nid,
           NID_HALF_WORD_0,
@@ -6695,9 +8311,7 @@ uint64_t* decode_illegal_compressed_instruction_imm_shamt(uint64_t* c_ir_nid) {
                 NID_FALSE),
               "C1 compressed instruction with illegal immediate or shamt?",
               NID_FALSE))),
-        NID_TRUE,
-        "is defined illegal compressed instruction or has illegal immediate or shamt?"),
-      NID_FALSE,
+        "is either defined illegal compressed instruction or else has illegal immediate or shamt?"),
       "compressed instruction with illegal immediate or shamt?");
   } else
     return UNUSED;
@@ -6803,15 +8417,14 @@ uint64_t* decode_compressed_store(uint64_t* sid, uint64_t* c_ir_nid,
 }
 
 uint64_t* decode_compressed_branch(uint64_t* sid, uint64_t* c_ir_nid,
-  uint64_t* c_beqz_nid, uint64_t* c_bnez_nid,
-  uint64_t* branch_nid, uint64_t* continue_nid, char* comment,
+  uint64_t* c_beqz_nid, uint64_t* c_bnez_nid, char* comment,
   uint64_t* other_c_funct3_nid) {
-  return decode_compressed_funct3_conditional(sid, c_ir_nid,
+  return decode_compressed_funct3(sid, c_ir_nid,
     NID_F3_C_BEQZ, "C.BEQZ?",
-    c_beqz_nid, branch_nid, continue_nid, format_comment("c.beqz %s", (uint64_t) comment),
-    decode_compressed_funct3_conditional(sid, c_ir_nid,
+    c_beqz_nid, format_comment("c.beqz %s", (uint64_t) comment),
+    decode_compressed_funct3(sid, c_ir_nid,
       NID_F3_C_BNEZ, "C.BNEZ?",
-      c_bnez_nid, branch_nid, continue_nid, format_comment("c.bnez %s", (uint64_t) comment),
+      c_bnez_nid, format_comment("c.bnez %s", (uint64_t) comment),
       other_c_funct3_nid));
 }
 
@@ -6878,53 +8491,52 @@ uint64_t* is_compressed_instruction(uint64_t* ir_nid) {
 uint64_t* decode_compressed_instruction(uint64_t* c_ir_nid) {
   if (RVC)
     return
-      decode_compressed_opcode(SID_BOOLEAN, c_ir_nid,
+      decode_compressed_opcode(SID_INSTRUCTION_ID, c_ir_nid,
         NID_OP_C2, "C2?",
-        decode_compressed_mv_add(SID_BOOLEAN, c_ir_nid,
+        decode_compressed_mv_add(SID_INSTRUCTION_ID, c_ir_nid,
           NID_C_MV, NID_C_ADD, "known?",
-          decode_compressed_slli(SID_BOOLEAN, c_ir_nid,
+          decode_compressed_slli(SID_INSTRUCTION_ID, c_ir_nid,
             NID_C_SLLI, "known?",
-            decode_compressed_load(SID_BOOLEAN, c_ir_nid,
+            decode_compressed_load(SID_INSTRUCTION_ID, c_ir_nid,
               NID_C_LDSP, NID_C_LWSP, "known?",
-              decode_compressed_store(SID_BOOLEAN, c_ir_nid,
+              decode_compressed_store(SID_INSTRUCTION_ID, c_ir_nid,
                 NID_C_SDSP, NID_C_SWSP, "known?",
-                decode_compressed_nonzero_rs1_zero_rs2(SID_BOOLEAN, c_ir_nid,
-                  decode_compressed_jr(SID_BOOLEAN, c_ir_nid,
+                decode_compressed_nonzero_rs1_zero_rs2(SID_INSTRUCTION_ID, c_ir_nid,
+                  decode_compressed_jr(SID_INSTRUCTION_ID, c_ir_nid,
                     NID_C_JR, "known?",
-                    decode_compressed_jalr(SID_BOOLEAN, c_ir_nid,
+                    decode_compressed_jalr(SID_INSTRUCTION_ID, c_ir_nid,
                       NID_C_JALR, "known?",
-                      NID_FALSE)),
-                  NID_FALSE))))),
+                      NID_DISABLED)),
+                  NID_DISABLED))))),
         "C2 compressed instruction known?",
-        decode_compressed_opcode(SID_BOOLEAN, c_ir_nid,
+        decode_compressed_opcode(SID_INSTRUCTION_ID, c_ir_nid,
           NID_OP_C0, "C0?",
-          decode_compressed_addi4spn(SID_BOOLEAN, c_ir_nid,
+          decode_compressed_addi4spn(SID_INSTRUCTION_ID, c_ir_nid,
             NID_C_ADDI4SPN, "known?",
-          decode_compressed_load(SID_BOOLEAN, c_ir_nid,
+          decode_compressed_load(SID_INSTRUCTION_ID, c_ir_nid,
             NID_C_LD, NID_C_LW, "known?",
-            decode_compressed_store(SID_BOOLEAN, c_ir_nid,
+            decode_compressed_store(SID_INSTRUCTION_ID, c_ir_nid,
               NID_C_SD, NID_C_SW, "known?",
-              NID_FALSE))),
+              NID_DISABLED))),
           "C0 compressed instruction known?",
-          decode_compressed_opcode(SID_BOOLEAN, c_ir_nid,
+          decode_compressed_opcode(SID_INSTRUCTION_ID, c_ir_nid,
             NID_OP_C1, "C1?",
-            decode_compressed_imm(SID_BOOLEAN, c_ir_nid,
+            decode_compressed_imm(SID_INSTRUCTION_ID, c_ir_nid,
               NID_C_LI, NID_C_LUI,
               NID_C_ADDI, NID_C_ADDIW, NID_C_ADDI16SP,
               NID_C_SRLI, NID_C_SRAI, NID_C_ANDI, "known?",
-              decode_compressed_op(SID_BOOLEAN, c_ir_nid,
+              decode_compressed_op(SID_INSTRUCTION_ID, c_ir_nid,
                 NID_C_SUB, NID_C_XOR, NID_C_OR, NID_C_AND,
                 NID_C_ADDW, NID_C_SUBW, "known?",
-                decode_compressed_branch(SID_BOOLEAN, c_ir_nid,
-                  NID_C_BEQZ, NID_C_BNEZ,
-                  NID_TRUE, NID_FALSE, "known?",
-                  decode_compressed_j(SID_BOOLEAN, c_ir_nid,
+                decode_compressed_branch(SID_INSTRUCTION_ID, c_ir_nid,
+                  NID_C_BEQZ, NID_C_BNEZ, "known?",
+                  decode_compressed_j(SID_INSTRUCTION_ID, c_ir_nid,
                     NID_C_J, "known?",
-                    decode_compressed_jal(SID_BOOLEAN, c_ir_nid,
+                    decode_compressed_jal(SID_INSTRUCTION_ID, c_ir_nid,
                       NID_C_JAL, "known?",
-                      NID_FALSE))))),
+                      NID_DISABLED))))),
             "C1 compressed instruction known?",
-            NID_FALSE)));
+            NID_DISABLED)));
   else
     return UNUSED;
 }
@@ -7028,7 +8640,7 @@ uint64_t* decode_compressed_load_with_opcode(uint64_t* sid, uint64_t* c_ir_nid,
 
 uint64_t* compressed_load_no_seg_faults(uint64_t* c_ir_nid, uint64_t* register_file_nid) {
   if (RVC)
-    return new_ternary(OP_ITE, SID_BOOLEAN,
+    return new_binary_boolean(OP_IMPLIES,
       is_compressed_instruction(c_ir_nid),
       decode_compressed_load_with_opcode(SID_BOOLEAN, c_ir_nid,
         is_sized_block_in_stack_segment(get_sp_value_plus_CI64_offset(c_ir_nid, register_file_nid), NID_VIRTUAL_DOUBLE_WORD_SIZE_MINUS_1),
@@ -7038,7 +8650,6 @@ uint64_t* compressed_load_no_seg_faults(uint64_t* c_ir_nid, uint64_t* register_f
         "no-seg-faults",
         NID_TRUE,
         NID_TRUE),
-      NID_TRUE,
       "no compressed load segmentation faults");
   else
     return UNUSED;
@@ -7052,7 +8663,7 @@ uint64_t* get_pc_value_plus_2(uint64_t* pc_nid) {
 }
 
 uint64_t* core_compressed_register_data_flow(uint64_t* pc_nid, uint64_t* c_ir_nid,
-  uint64_t* register_file_nid, uint64_t* memory_nid) {
+  uint64_t* register_file_nid, uint64_t* memory_nid, uint64_t* other_register_data_flow_nid) {
   uint64_t* rd_nid;
   uint64_t* rd_value_nid;
   uint64_t* rd_shift_nid;
@@ -7070,8 +8681,7 @@ uint64_t* core_compressed_register_data_flow(uint64_t* pc_nid, uint64_t* c_ir_ni
     rs1_shift_nid       = get_compressed_instruction_rs1_shift(c_ir_nid);
     rs1_shift_value_nid = load_register_value(rs1_shift_nid, "compressed rs1' or rd' value", register_file_nid);
 
-    rs2_value_nid = load_register_value(get_compressed_instruction_rs2(c_ir_nid), "compressed rs2 value", register_file_nid);
-
+    rs2_value_nid       = load_register_value(get_compressed_instruction_rs2(c_ir_nid), "compressed rs2 value", register_file_nid);
     rs2_shift_value_nid = load_register_value(get_compressed_instruction_rs2_shift(c_ir_nid), "compressed rs2' value", register_file_nid);
 
     rd_nid = decode_compressed_register_data_flow(SID_REGISTER_ADDRESS, c_ir_nid,
@@ -7169,28 +8779,29 @@ uint64_t* core_compressed_register_data_flow(uint64_t* pc_nid, uint64_t* c_ir_ni
           slice_single_word_from_machine_word(rs1_shift_value_nid),
           slice_single_word_from_machine_word(rs2_shift_value_nid),
           "lower 32 bits of compressed rd' value - lower 32 bits of compressed rs2' value")),
-      load_double_word(get_sp_value_plus_CI64_offset(c_ir_nid, register_file_nid), memory_nid),
-      extend_single_word_to_machine_word(OP_SEXT,
+      load_double_word(get_sp_value_plus_CI64_offset(c_ir_nid, register_file_nid), memory_nid), // c.ldsp
+      extend_single_word_to_machine_word(OP_SEXT, // c.lwsp
         load_single_word(get_sp_value_plus_CI32_offset(c_ir_nid, register_file_nid), memory_nid)),
-      load_double_word(get_rs1_shift_value_plus_CL64_offset(c_ir_nid, register_file_nid), memory_nid),
-      extend_single_word_to_machine_word(OP_SEXT,
+      load_double_word(get_rs1_shift_value_plus_CL64_offset(c_ir_nid, register_file_nid), memory_nid), // c.ld
+      extend_single_word_to_machine_word(OP_SEXT, // c.lw
         load_single_word(get_rs1_shift_value_plus_CL32_offset(c_ir_nid, register_file_nid), memory_nid)),
-      get_pc_value_plus_2(pc_nid),
-      get_pc_value_plus_2(pc_nid),
+      get_pc_value_plus_2(pc_nid), // c.jal
+      get_pc_value_plus_2(pc_nid), // c.jalr
       "register data flow",
-      load_register_value(rd_nid, "current compressed rd value", register_file_nid));
+      NID_MACHINE_WORD_0);
 
     return new_ternary(OP_ITE, SID_REGISTER_STATE,
-      new_binary_boolean(OP_AND,
-        is_compressed_instruction(c_ir_nid),
+      is_compressed_instruction(c_ir_nid),
+      new_ternary(OP_ITE, SID_REGISTER_STATE,
         new_binary_boolean(OP_NEQ, rd_nid, NID_ZR, "rd != register zero?"),
-        "is compressed instruction and rd != register zero?"),
-      store_register_value(rd_nid, rd_value_nid,
-        "compressed instruction rd update", register_file_nid),
-      register_file_nid,
+        store_register_value(rd_nid, rd_value_nid,
+          "compressed instruction rd update", register_file_nid),
+        register_file_nid,
+        "compressed instruction register data flow"),
+      other_register_data_flow_nid,
       "compressed instruction and other register data flow");
   } else
-    return register_file_nid;
+    return other_register_data_flow_nid;
 }
 
 uint64_t* decode_compressed_memory_data_flow(uint64_t* sid, uint64_t* c_ir_nid,
@@ -7238,7 +8849,7 @@ uint64_t* get_rs1_shift_value_plus_CS64_offset(uint64_t* c_ir_nid, uint64_t* reg
 
 uint64_t* compressed_store_no_seg_faults(uint64_t* c_ir_nid, uint64_t* register_file_nid) {
   if (RVC)
-    return new_ternary(OP_ITE, SID_BOOLEAN,
+    return new_binary_boolean(OP_IMPLIES,
       is_compressed_instruction(c_ir_nid),
       decode_compressed_memory_data_flow(SID_BOOLEAN, c_ir_nid,
         is_sized_block_in_stack_segment(get_sp_value_plus_CSS64_offset(c_ir_nid, register_file_nid), NID_VIRTUAL_DOUBLE_WORD_SIZE_MINUS_1),
@@ -7247,13 +8858,13 @@ uint64_t* compressed_store_no_seg_faults(uint64_t* c_ir_nid, uint64_t* register_
         is_sized_block_in_main_memory(get_rs1_shift_value_plus_CS32_offset(c_ir_nid, register_file_nid), NID_VIRTUAL_SINGLE_WORD_SIZE_MINUS_1),
         "no-seg-faults",
         NID_TRUE),
-      NID_TRUE,
       "no compressed store and other store segmentation faults");
   else
     return UNUSED;
 }
 
-uint64_t* core_compressed_memory_data_flow(uint64_t* c_ir_nid, uint64_t* register_file_nid, uint64_t* memory_nid) {
+uint64_t* core_compressed_memory_data_flow(uint64_t* c_ir_nid,
+  uint64_t* register_file_nid, uint64_t* memory_nid, uint64_t* other_memory_data_flow_nid) {
   uint64_t* rs2_value_nid;
   uint64_t* rs2_shift_value_nid;
 
@@ -7278,10 +8889,10 @@ uint64_t* core_compressed_memory_data_flow(uint64_t* c_ir_nid, uint64_t* registe
           memory_nid),
         "compressed instruction memory data flow",
         memory_nid),
-      memory_nid,
+      other_memory_data_flow_nid,
       "compressed instruction and other memory data flow");
   } else
-    return memory_nid;
+    return other_memory_data_flow_nid;
 }
 
 uint64_t* get_pc_value_plus_CB_offset(uint64_t* pc_nid, uint64_t* c_ir_nid) {
@@ -7291,16 +8902,24 @@ uint64_t* get_pc_value_plus_CB_offset(uint64_t* pc_nid, uint64_t* c_ir_nid) {
     "pc value + CB-offset");
 }
 
-uint64_t* compressed_branch_control_flow(uint64_t* pc_nid, uint64_t* c_ir_nid, uint64_t* register_file_nid, uint64_t* other_control_flow_nid) {
-  uint64_t* rs1_value_nid;
-
-  rs1_value_nid = load_register_value(get_compressed_instruction_rs1_shift(c_ir_nid), "rs1' value", register_file_nid);
-
-  return decode_compressed_branch(SID_MACHINE_WORD, c_ir_nid,
-    new_binary_boolean(OP_EQ, rs1_value_nid, NID_MACHINE_WORD_0, "rs1' value == 0?"),
-    new_binary_boolean(OP_NEQ, rs1_value_nid, NID_MACHINE_WORD_0, "rs1' value != 0?"),
+uint64_t* execute_compressed_branch(uint64_t* pc_nid, uint64_t* c_ir_nid, uint64_t* condition_nid) {
+  return new_ternary(OP_ITE, SID_MACHINE_WORD,
+    condition_nid,
     get_pc_value_plus_CB_offset(pc_nid, c_ir_nid),
     get_pc_value_plus_2(pc_nid),
+    "evaluate compressed branch condition");
+}
+
+uint64_t* compressed_branch_control_flow(uint64_t* pc_nid, uint64_t* c_ir_nid, uint64_t* register_file_nid, uint64_t* other_control_flow_nid) {
+  uint64_t* rs1_shift_value_nid;
+
+  rs1_shift_value_nid = load_register_value(get_compressed_instruction_rs1_shift(c_ir_nid), "rs1' value", register_file_nid);
+
+  return decode_compressed_branch(SID_MACHINE_WORD, c_ir_nid,
+    execute_compressed_branch(pc_nid, c_ir_nid,
+      new_binary_boolean(OP_EQ, rs1_shift_value_nid, NID_MACHINE_WORD_0, "rs1' value == 0?")),
+    execute_compressed_branch(pc_nid, c_ir_nid,
+      new_binary_boolean(OP_NEQ, rs1_shift_value_nid, NID_MACHINE_WORD_0, "rs1' value != 0?")),
     "pc-relative compressed branch control flow",
     other_control_flow_nid);
 }
@@ -7367,17 +8986,25 @@ uint64_t* core_compressed_control_flow(uint64_t* pc_nid, uint64_t* c_ir_nid, uin
 // -----------------------------------------------------------------
 
 void new_core_state(uint64_t core) {
+  set_for(core, state_pc_nids, state_pc_nid);
+
   if (SYNCHRONIZED_PC)
     if (core > 0)
       return;
 
-  if (CODE_LOADED)
-    initial_core_pc_nid = new_constant(OP_CONSTH, SID_MACHINE_WORD, get_pc(current_context), 8, "entry pc value");
+  if (core < number_of_binaries)
+    initial_pc_nid = new_constant(OP_CONSTH, SID_MACHINE_WORD, get_pc(current_context), 8, "entry pc value");
   else
-    initial_core_pc_nid = new_constant(OP_CONSTH, SID_MACHINE_WORD, code_start, 8, "initial pc value");
+    initial_pc_nid = new_constant(OP_CONSTH, SID_MACHINE_WORD, code_start, 8, "initial pc value");
 
-  state_core_pc_nid = new_input(OP_STATE, SID_MACHINE_WORD, format_comment("core-%lu-pc", core), "program counter");
-  init_core_pc_nid  = new_binary(OP_INIT, SID_MACHINE_WORD, state_core_pc_nid, initial_core_pc_nid, "initial value of pc");
+  state_pc_nid =
+    new_input(OP_STATE, SID_MACHINE_WORD, format_comment("core-%lu-pc", core), "program counter");
+
+  set_for(core, state_pc_nids, state_pc_nid);
+
+  init_pc_nid = new_init(SID_MACHINE_WORD, state_pc_nid, initial_pc_nid, "initial value of pc");
+
+  eval_init(init_pc_nid);
 }
 
 void print_core_state(uint64_t core) {
@@ -7385,10 +9012,10 @@ void print_core_state(uint64_t core) {
     if (core > 0)
       return;
 
-  print_break_comment(format_comment("core-%lu program counter", core));
+  print_break_comment_for(core, "program counter");
 
-  print_line(initial_core_pc_nid);
-  print_line(init_core_pc_nid);
+  print_line(initial_pc_nid);
+  print_line(init_pc_nid);
 }
 
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
@@ -7406,7 +9033,7 @@ uint64_t* state_property(uint64_t core, uint64_t* good_nid, uint64_t* bad_nid, c
     if (bad_nid == UNUSED)
       return UNUSED;
 
-  if (((CODE_LOADED == 0) + (SYNTHESIZE * (core > 0))) > 0) {
+  if (core >= number_of_binaries) {
     if (good_nid == UNUSED)
       good_nid = new_unary_boolean(OP_NOT, bad_nid, "asserting");
 
@@ -7420,6 +9047,8 @@ uint64_t* state_property(uint64_t core, uint64_t* good_nid, uint64_t* bad_nid, c
 }
 
 void output_model(uint64_t core) {
+  print_segmentation(core);
+
   print_kernel_state(core);
 
   print_core_state(core);
@@ -7430,98 +9059,116 @@ void output_model(uint64_t core) {
 
   print_memory_state(core);
 
-  print_break_comment_line("fetch instruction", eval_core_ir_nid);
+  print_break_comment_line_for(core, "fetch instruction", eval_ir_nid);
 
-  print_break_comment_line("fetch compressed instruction", eval_core_c_ir_nid);
+  print_break_comment_line_for(core, "fetch compressed instruction", eval_c_ir_nid);
 
-  print_break_comment_line("decode instruction", eval_known_instructions_nid);
+  print_break_comment_line_for(core, "decode instruction", eval_instruction_ID_nid);
 
-  print_break_comment_line("decode compressed instruction",
-    eval_known_compressed_instructions_nid);
+  print_break_comment_line_for(core, "decode compressed instruction", eval_compressed_instruction_ID_nid);
 
-  print_break_comment_line("instruction control flow", eval_core_instruction_control_flow_nid);
+  print_break_comment_line_for(core, "instruction control flow", eval_instruction_control_flow_nid);
 
-  print_break_comment_line("compressed instruction control flow",
-    eval_core_compressed_instruction_control_flow_nid);
+  print_break_comment_line_for(core, "compressed instruction control flow",
+    eval_compressed_instruction_control_flow_nid);
 
-  print_break_comment_line("update kernel state", next_program_break_nid);
+  print_break_comment_line_for(core, "update kernel state", next_program_break_nid);
 
   print_break_line(next_file_descriptor_nid);
 
-  print_break_line(next_readable_bytes_nid);
+  print_break_line_for(core, next_readable_bytes_nids);
 
-  print_break_line(next_read_bytes_nid);
+  print_break_line_for(core, next_read_bytes_nids);
 
-  print_break_comment_line("kernel and instruction control flow", eval_core_control_flow_nid);
+  print_break_comment_line_for(core, "kernel and instruction control flow", eval_control_flow_nid);
 
-  print_break_comment_line("update program counter", next_core_pc_nid);
+  print_break_comment_line_for(core, "update program counter", next_pc_nid);
 
-  print_break_comment_line("instruction register data flow",
-    eval_core_instruction_register_data_flow_nid);
+  print_break_comment_line_for(core, "instruction register data flow",
+    eval_instruction_register_data_flow_nid);
 
-  print_break_comment_line("compressed instruction register data flow",
-    eval_core_compressed_instruction_register_data_flow_nid);
+  print_break_comment_line_for(core, "compressed instruction register data flow",
+    eval_compressed_instruction_register_data_flow_nid);
 
-  print_break_comment_line("kernel and instruction register data flow",
-    eval_core_register_data_flow_nid);
+  print_break_comment_line_for(core, "kernel and instruction register data flow",
+    eval_register_data_flow_nid);
 
-  print_break_comment_line("update register data flow", next_register_file_nid);
+  print_break_comment_line_for(core, "update register data flow", next_register_file_nid);
 
-  print_break_comment_line("instruction memory data flow",
-    eval_core_instruction_memory_data_flow_nid);
+  print_break_comment_line_for(core, "instruction memory data flow",
+    eval_instruction_memory_data_flow_nid);
 
-  print_break_comment_line("compressed instruction memory data flow",
-    eval_core_compressed_instruction_memory_data_flow_nid);
+  print_break_comment_line_for(core, "compressed instruction memory data flow",
+    eval_compressed_instruction_memory_data_flow_nid);
 
-  print_break_comment_line("kernel and instruction memory data flow",
-    eval_core_memory_data_flow_nid);
+  print_break_comment_line_for(core, "kernel and instruction memory data flow",
+    eval_memory_data_flow_nid);
 
-  print_break_comment_line("update memory data flow", next_main_memory_nid);
+  print_break_comment_line_for(core, "update memory data flow", next_main_memory_nid);
 
-  print_break_comment("state properties");
+  print_break_comment_for(core, "state properties");
 
-  print_line(prop_illegal_instruction_nid);
+  print_line_for(core, prop_illegal_instruction_nids);
 
-  print_break_line(prop_illegal_compressed_instruction_nid);
+  print_break_line_for(core, prop_illegal_compressed_instruction_nids);
 
-  print_break_line(prop_is_instruction_known_nid);
+  print_break_line_for(core, prop_is_instruction_known_nids);
 
-  print_break_line(prop_next_fetch_unaligned_nid);
+  print_break_line_for(core, prop_next_fetch_unaligned_nids);
 
-  print_break_line(prop_next_fetch_seg_faulting_nid);
+  print_break_line_for(core, prop_next_fetch_seg_faulting_nids);
 
-  print_break_line(prop_is_syscall_id_known_nid);
+  print_break_line_for(core, prop_is_syscall_id_known_nids);
 
-  // optional state properties
+  // optional exit properties
 
-  if (core == CORES - 1)
-    print_break_line(prop_bad_exit_code_nid);
+  print_break_line_for(core, prop_bad_exit_code_nids);
 
-  print_break_line(prop_exclude_a0_from_rd_nid);
+  if (core == number_of_cores - 1) {
+    print_break_line(prop_exit_codes_nid);
 
-  print_break_line(prop_division_by_zero_nid);
+    print_break_line(prop_all_cores_exited_nid);
+  }
 
-  print_break_line(prop_signed_division_overflow_nid);
+  // optional arithmetic properties
 
-  // segmentation faults in main memory
+  print_break_line_for(core, prop_division_by_zero_nids);
 
-  print_break_line(prop_load_seg_faulting_nid);
+  print_break_line_for(core, prop_signed_division_overflow_nids);
 
-  print_break_line(prop_store_seg_faulting_nid);
+  // optional user code segmentation fault checks
 
-  print_break_line(prop_compressed_load_seg_faulting_nid);
+  print_break_line_for(core, prop_load_seg_faulting_nids);
 
-  print_break_line(prop_compressed_store_seg_faulting_nid);
+  print_break_line_for(core, prop_store_seg_faulting_nids);
 
-  print_break_line(prop_stack_seg_faulting_nid);
+  print_break_line_for(core, prop_compressed_load_seg_faulting_nids);
 
-  print_break_line(prop_brk_seg_faulting_nid);
+  print_break_line_for(core, prop_compressed_store_seg_faulting_nids);
 
-  print_break_line(prop_openat_seg_faulting_nid);
+  print_break_line_for(core, prop_stack_seg_faulting_nids);
 
-  print_break_line(prop_read_seg_faulting_nid);
+  // optional kernel segmentation fault checks
 
-  print_break_line(prop_write_seg_faulting_nid);
+  print_break_line_for(core, prop_brk_seg_faulting_nids);
+
+  print_break_line_for(core, prop_openat_seg_faulting_nids);
+
+  print_break_line_for(core, prop_read_seg_faulting_nids);
+
+  print_break_line_for(core, prop_write_seg_faulting_nids);
+
+  // synchronizing program counters
+
+  print_break_line_for(core, sync_pc_nids);
+
+  // synchronizing register files
+
+  print_break_line_for(core, sync_register_file_nids);
+
+  // synchronizing main memories
+
+  print_break_line_for(core, sync_main_memory_nids);
 }
 
 void kernel_combinational(uint64_t* pc_nid, uint64_t* ir_nid,
@@ -7648,7 +9295,7 @@ void kernel_combinational(uint64_t* pc_nid, uint64_t* ir_nid,
 
   // kernel and instruction control flow
 
-  eval_core_control_flow_nid = new_ternary(OP_ITE, SID_MACHINE_WORD,
+  eval_control_flow_nid = new_ternary(OP_ITE, SID_MACHINE_WORD,
     new_binary_boolean(OP_AND,
       active_ecall_nid,
       new_binary_boolean(OP_OR,
@@ -7688,7 +9335,7 @@ void kernel_combinational(uint64_t* pc_nid, uint64_t* ir_nid,
 
   // kernel and instruction register data flow
 
-  eval_core_register_data_flow_nid = new_ternary(OP_ITE, SID_REGISTER_STATE,
+  eval_register_data_flow_nid = new_ternary(OP_ITE, SID_REGISTER_STATE,
     active_ecall_nid,
     new_ternary(OP_ITE, SID_REGISTER_STATE,
       brk_syscall_nid,
@@ -7737,7 +9384,7 @@ void kernel_combinational(uint64_t* pc_nid, uint64_t* ir_nid,
 
   // kernel and instruction memory data flow
 
-  eval_core_memory_data_flow_nid = new_ternary(OP_ITE, SID_MEMORY_STATE,
+  eval_memory_data_flow_nid = new_ternary(OP_ITE, SID_MEMORY_STATE,
     eval_still_reading_active_read_nid,
     store_byte(new_binary(OP_ADD, SID_MACHINE_WORD,
       a1_value_nid,
@@ -7746,7 +9393,7 @@ void kernel_combinational(uint64_t* pc_nid, uint64_t* ir_nid,
       new_input(OP_INPUT, SID_BYTE, "read-input-byte", "input byte by read system call"),
       memory_nid),
     memory_data_flow_nid,
-    "main memory data flow");
+    "memory data flow");
 }
 
 void kernel_sequential(uint64_t core,
@@ -7792,9 +9439,9 @@ void kernel_sequential(uint64_t core,
       program_break_nid,
       "new program break");
 
-  if (core == CORES - 1)
+  if (core == number_of_cores - 1)
     next_program_break_nid =
-      new_binary(OP_NEXT, SID_VIRTUAL_ADDRESS,
+      new_next(SID_VIRTUAL_ADDRESS,
         program_break_nid,
         next_program_break_nid,
         "new program break");
@@ -7808,17 +9455,17 @@ void kernel_sequential(uint64_t core,
       file_descriptor_nid,
       "new file descriptor");
 
-  if (core == CORES - 1)
+  if (core == number_of_cores - 1)
     next_file_descriptor_nid =
-      new_binary(OP_NEXT, SID_MACHINE_WORD,
+      new_next(SID_MACHINE_WORD,
         file_descriptor_nid,
         next_file_descriptor_nid,
         "new file descriptor");
 
   // update read kernel state
 
-  next_readable_bytes_nid =
-    new_binary(OP_NEXT, SID_MACHINE_WORD,
+  set_for(core, next_readable_bytes_nids,
+    new_next(SID_MACHINE_WORD,
       readable_bytes_nid,
       new_ternary(OP_ITE, SID_MACHINE_WORD,
         still_reading_active_read_nid,
@@ -7827,10 +9474,10 @@ void kernel_sequential(uint64_t core,
           "decrement readable bytes"),
         readable_bytes_nid,
         "decrement readable bytes if system call is still reading"),
-      "readable bytes");
+      "readable bytes"));
 
-  next_read_bytes_nid =
-    new_binary(OP_NEXT, SID_MACHINE_WORD,
+  set_for(core, next_read_bytes_nids,
+    new_next(SID_MACHINE_WORD,
       read_bytes_nid,
       new_ternary(OP_ITE, SID_MACHINE_WORD,
         new_binary_boolean(OP_AND,
@@ -7843,7 +9490,7 @@ void kernel_sequential(uint64_t core,
           "increment bytes already read by read system call"),
         NID_MACHINE_WORD_0,
         "increment bytes already read if read system call is active"),
-      "bytes already read in active read system call");
+      "bytes already read in active read system call"));
 }
 
 void kernel_properties(uint64_t core, uint64_t* ir_nid, uint64_t* read_bytes_nid, uint64_t* register_file_nid) {
@@ -7870,7 +9517,7 @@ void kernel_properties(uint64_t core, uint64_t* ir_nid, uint64_t* read_bytes_nid
   uint64_t* a1_value_nid;
   uint64_t* a2_value_nid;
 
-  uint64_t* bad_exit_code_nid;
+  uint64_t* equal_a0_values_nid;
 
   // system call ABI control flow
 
@@ -7901,7 +9548,7 @@ void kernel_properties(uint64_t core, uint64_t* ir_nid, uint64_t* read_bytes_nid
 
   // kernel properties
 
-  prop_is_syscall_id_known_nid = state_property(core,
+  set_for(core, prop_is_syscall_id_known_nids, state_property(core,
     UNUSED,
     new_binary_boolean(OP_AND,
       active_ecall_nid,
@@ -7920,10 +9567,10 @@ void kernel_properties(uint64_t core, uint64_t* ir_nid, uint64_t* read_bytes_nid
         "a7 != exit or brk or openat or read or write syscall ID"),
       "active ecall and a7 != known syscall ID"),
     format_comment("core-%lu-unknown-syscall-ID", core),
-    format_comment("core-%lu unknown syscall ID", core));
+    format_comment("core-%lu unknown syscall ID", core)));
 
   if (check_seg_faults)
-    prop_brk_seg_faulting_nid = state_property(core,
+    set_for(core, prop_brk_seg_faulting_nids, state_property(core,
       UNUSED,
       new_binary_boolean(OP_AND,
         active_brk_nid,
@@ -7936,26 +9583,26 @@ void kernel_properties(uint64_t core, uint64_t* ir_nid, uint64_t* read_bytes_nid
           "is new program break invalid?"),
         "invalid new program break with active brk system call"),
       format_comment("core-%lu-brk-seg-fault", core),
-      format_comment("core-%lu possible brk segmentation fault", core));
+      format_comment("core-%lu possible brk segmentation fault", core)));
 
   // TODO: validate openat arguments other than filename
 
   if (check_seg_faults)
-    prop_openat_seg_faulting_nid = state_property(core,
+    set_for(core, prop_openat_seg_faulting_nids, state_property(core,
       UNUSED,
       new_binary_boolean(OP_AND,
         active_openat_nid,
         new_unary_boolean(OP_NOT,
-          is_range_in_heap_segment(a1_value_nid, NID_MAX_STRING_LENGTH),
+          is_range_in_machine_word_in_heap_segment(a1_value_nid, NID_MAX_STRING_LENGTH),
           "is filename access not in heap segment?"),
         "openat system call filename access may cause segmentation fault"),
       format_comment("core-%lu-openat-seg-fault", core),
-      format_comment("core-%lu possible openat segmentation fault", core));
+      format_comment("core-%lu possible openat segmentation fault", core)));
 
   // TODO: further validate read arguments
 
   if (check_seg_faults)
-    prop_read_seg_faulting_nid = state_property(core,
+    set_for(core, prop_read_seg_faulting_nids, state_property(core,
       UNUSED,
       new_binary_boolean(OP_AND,
         new_binary_boolean(OP_AND,
@@ -7968,119 +9615,175 @@ void kernel_properties(uint64_t core, uint64_t* ir_nid, uint64_t* read_bytes_nid
         new_binary_boolean(OP_AND,
           new_binary_boolean(OP_UGT, a2_value_nid, NID_MACHINE_WORD_0, "bytes to be read > 0?"),
           new_unary_boolean(OP_NOT,
-            is_range_in_heap_segment(a1_value_nid, a2_value_nid),
+            is_range_in_machine_word_in_heap_segment(a1_value_nid, a2_value_nid),
             "is read system call access not in heap segment?"),
           "may bytes to be read not be stored in heap segment?"),
         "storing bytes to be read may cause segmentation fault"),
       format_comment("core-%lu-read-seg-fault", core),
-      format_comment("core-%lu possible read segmentation fault", core));
+      format_comment("core-%lu possible read segmentation fault", core)));
 
   // TODO: further validate write arguments
 
   if (check_seg_faults)
-    prop_write_seg_faulting_nid = state_property(core,
+    set_for(core, prop_write_seg_faulting_nids, state_property(core,
       UNUSED,
       new_binary_boolean(OP_AND,
         active_write_nid,
           new_binary_boolean(OP_AND,
             new_binary_boolean(OP_UGT, a2_value_nid, NID_MACHINE_WORD_0, "bytes to be written > 0?"),
             new_unary_boolean(OP_NOT,
-              is_range_in_heap_segment(a1_value_nid, a2_value_nid),
+              is_range_in_machine_word_in_heap_segment(a1_value_nid, a2_value_nid),
               "is write system call access not in heap segment?"),
           "may bytes to be written not be loaded from heap segment?"),
         "loading bytes to be written may cause segmentation fault"),
       format_comment("core-%lu-write-seg-fault", core),
-      format_comment("core-%lu possible write segmentation fault", core));
+      format_comment("core-%lu possible write segmentation fault", core)));
 
-  if (check_exit_code) {
-    bad_exit_code_nid = new_binary_boolean(OP_AND,
-      active_exit_nid,
-      new_binary_boolean(OP_EQ,
+  if (check_bad_exit_code) {
+    prop_bad_exit_code_nid = new_property(OP_BAD,
+      new_binary_boolean(OP_AND,
+        active_exit_nid,
+        new_binary_boolean(OP_EQ,
+          a0_value_nid,
+          new_constant(OP_CONSTD, SID_MACHINE_WORD,
+            bad_exit_code, 0, format_comment("bad exit code %ld", bad_exit_code)),
+          "actual exit code == bad exit code?"),
+        "active exit system call with bad exit code"),
+      format_comment("core-%lu-bad-exit-code", core),
+      format_comment("exit(%ld)", bad_exit_code));
+
+    set_for(core, prop_bad_exit_code_nids, prop_bad_exit_code_nid);
+  }
+
+  if (check_exit_codes) {
+    if (core == 0) {
+      prop_active_exits_nid = active_exit_nid;
+
+      prop_exit_codes_nid       = UNUSED;
+      prop_all_cores_exited_nid = UNUSED;
+    } else {
+      prop_active_exits_nid = new_binary_boolean(OP_AND,
+        prop_active_exits_nid,
+        active_exit_nid,
+        format_comment("up to core-%lu active exits?", core));
+
+      equal_a0_values_nid = new_binary_boolean(OP_EQ,
+        prop_previous_core_a0_value_nid,
         a0_value_nid,
-        new_constant(OP_CONSTD, SID_MACHINE_WORD,
-          bad_exit_code, 0, format_comment("bad exit code %ld", bad_exit_code)),
-        "actual exit code == bad exit code?"),
-      format_comment("core-%lu active exit system call with bad exit code", core));
+        format_comment("previous core exit code == core-%lu exit code?", core));
 
-    if (core == 0)
-      prop_bad_exit_code_nid = bad_exit_code_nid;
-    else
-      prop_bad_exit_code_nid = new_binary_boolean(OP_AND,
-        prop_bad_exit_code_nid,
-        bad_exit_code_nid,
-        "and next bad exit");
+      if (core == 1)
+        prop_exit_codes_nid = equal_a0_values_nid;
+      else
+        prop_exit_codes_nid = new_binary_boolean(OP_AND,
+          prop_exit_codes_nid,
+          equal_a0_values_nid,
+        format_comment("up to core-%lu same exit codes?", core));
 
-    if (core == CORES - 1)
-      prop_bad_exit_code_nid = new_property(OP_BAD,
-        prop_bad_exit_code_nid,
-        "bad-exit-code",
-        format_comment("exit(%ld)", bad_exit_code));
+      if (core == number_of_cores - 1) {
+        prop_exit_codes_nid = state_property(core,
+          new_binary_boolean(OP_IMPLIES,
+            prop_active_exits_nid,
+            prop_exit_codes_nid,
+            "all cores should exit with the same exit code"),
+          UNUSED,
+          "exit-codes",
+          "exit codes on all cores");
+
+        if (number_of_binaries < number_of_cores)
+          prop_all_cores_exited_nid = new_property(OP_BAD,
+            prop_active_exits_nid,
+            "all-cores-exited",
+            "all cores exited");
+      }
+    }
+
+    prop_previous_core_a0_value_nid = a0_value_nid;
   }
 }
 
-void rotor_combinational(uint64_t* pc_nid, uint64_t* code_segment_nid, uint64_t* register_file_nid, uint64_t* memory_nid) {
+void rotor_combinational(uint64_t core, uint64_t* pc_nid, uint64_t* code_segment_nid, uint64_t* register_file_nid, uint64_t* memory_nid) {
   // fetch instruction
 
-  eval_core_ir_nid = fetch_instruction(pc_nid, code_segment_nid);
+  eval_ir_nid = fetch_instruction(pc_nid, code_segment_nid);
+
+  set_for(core, eval_ir_nids, eval_ir_nid);
 
   // fetch compressed instruction
 
-  eval_core_c_ir_nid = fetch_compressed_instruction(pc_nid, code_segment_nid);
+  eval_c_ir_nid = fetch_compressed_instruction(pc_nid, code_segment_nid);
+
+  set_for(core, eval_c_ir_nids, eval_c_ir_nid);
 
   // decode instruction
 
-  eval_known_instructions_nid = decode_instruction(eval_core_ir_nid);
+  eval_instruction_ID_nid = decode_instruction(eval_ir_nid);
 
   // decode compressed instruction
 
-  eval_known_compressed_instructions_nid = decode_compressed_instruction(eval_core_c_ir_nid);
+  eval_compressed_instruction_ID_nid = decode_compressed_instruction(eval_c_ir_nid);
+
+  if (eval_compressed_instruction_ID_nid == UNUSED)
+    set_for(core, eval_instruction_ID_nids, eval_instruction_ID_nid);
+  else
+    set_for(core, eval_instruction_ID_nids, new_ternary(OP_ITE, SID_INSTRUCTION_ID,
+      is_compressed_instruction(eval_ir_nid),
+      eval_compressed_instruction_ID_nid,
+      eval_instruction_ID_nid,
+      "is known uncompressed or compressed instruction?"));
 
   // instruction control flow
 
-  eval_core_instruction_control_flow_nid =
-    core_control_flow(pc_nid, eval_core_ir_nid, register_file_nid);
+  eval_instruction_control_flow_nid =
+    core_control_flow(pc_nid, eval_ir_nid, register_file_nid);
 
   // compressed instruction control flow
 
-  eval_core_compressed_instruction_control_flow_nid =
-    core_compressed_control_flow(pc_nid, eval_core_c_ir_nid, register_file_nid,
-      eval_core_instruction_control_flow_nid);
+  eval_compressed_instruction_control_flow_nid =
+    core_compressed_control_flow(pc_nid, eval_c_ir_nid,
+      register_file_nid, eval_instruction_control_flow_nid);
 
   // instruction register data flow
 
-  eval_core_instruction_register_data_flow_nid =
-    core_register_data_flow(pc_nid, eval_core_ir_nid, register_file_nid, memory_nid);
+  eval_instruction_register_data_flow_nid =
+    core_register_data_flow(pc_nid, eval_ir_nid, register_file_nid, memory_nid);
 
   // compressed instruction register data flow
 
-  eval_core_compressed_instruction_register_data_flow_nid =
-    core_compressed_register_data_flow(pc_nid, eval_core_c_ir_nid,
-      eval_core_instruction_register_data_flow_nid, memory_nid);
+  eval_compressed_instruction_register_data_flow_nid =
+    core_compressed_register_data_flow(pc_nid, eval_c_ir_nid,
+      register_file_nid, memory_nid, eval_instruction_register_data_flow_nid);
 
   // instruction memory data flow
 
-  eval_core_instruction_memory_data_flow_nid =
-    core_memory_data_flow(eval_core_ir_nid, register_file_nid, memory_nid);
+  eval_instruction_memory_data_flow_nid =
+    core_memory_data_flow(eval_ir_nid, register_file_nid, memory_nid);
 
   // compressed instruction memory data flow
 
-  eval_core_compressed_instruction_memory_data_flow_nid =
-    core_compressed_memory_data_flow(eval_core_c_ir_nid, register_file_nid,
-      eval_core_instruction_memory_data_flow_nid);
+  eval_compressed_instruction_memory_data_flow_nid =
+    core_compressed_memory_data_flow(eval_c_ir_nid,
+      register_file_nid, memory_nid, eval_instruction_memory_data_flow_nid);
 }
 
 void rotor_sequential(uint64_t core, uint64_t* pc_nid, uint64_t* register_file_nid, uint64_t* memory_nid,
   uint64_t* control_flow_nid, uint64_t* register_data_flow_nid, uint64_t* memory_data_flow_nid) {
+  uint64_t* sync_pc_nid;
+  uint64_t* sync_register_file_nid;
+  uint64_t* sync_main_memory_nid;
+
   // update control flow
+
+  next_pc_nid = UNUSED;
+  sync_pc_nid = UNUSED;
 
   if (SYNCHRONIZED_PC)
     if (core == 0) {
-      next_core_pc_nid = new_binary(OP_NEXT, SID_MACHINE_WORD,
-        pc_nid, control_flow_nid, "program counter");
+      next_pc_nid = new_next(SID_MACHINE_WORD, pc_nid, control_flow_nid, "program counter");
 
       eval_core_0_control_flow_nid = control_flow_nid;
     } else
-      next_core_pc_nid = new_property(OP_CONSTRAINT,
+      sync_pc_nid = new_property(OP_CONSTRAINT,
         new_binary_boolean(OP_EQ,
           control_flow_nid,
           eval_core_0_control_flow_nid,
@@ -8088,19 +9791,24 @@ void rotor_sequential(uint64_t core, uint64_t* pc_nid, uint64_t* register_file_n
         format_comment("new-core-%lu-pc-value", core),
         "asserting new pc value == new core-0 pc value");
   else
-    next_core_pc_nid = new_binary(OP_NEXT, SID_MACHINE_WORD,
-      pc_nid, control_flow_nid, "program counter");
+    next_pc_nid = new_next(SID_MACHINE_WORD, pc_nid, control_flow_nid, "program counter");
+
+  set_for(core, next_pc_nids, next_pc_nid);
+  set_for(core, sync_pc_nids, sync_pc_nid);
 
   // update register data flow
 
+  next_register_file_nid = UNUSED;
+  sync_register_file_nid = UNUSED;
+
   if (SYNCHRONIZED_REGISTERS)
     if (core == 0) {
-      next_register_file_nid = new_binary(OP_NEXT, SID_REGISTER_STATE,
+      next_register_file_nid = new_next(SID_REGISTER_STATE,
         register_file_nid, register_data_flow_nid, "register file");
 
       eval_core_0_register_data_flow_nid = register_data_flow_nid;
     } else
-      next_register_file_nid = new_property(OP_CONSTRAINT,
+      sync_register_file_nid = new_property(OP_CONSTRAINT,
         new_binary_boolean(OP_EQ,
           register_data_flow_nid,
           eval_core_0_register_data_flow_nid,
@@ -8108,25 +9816,31 @@ void rotor_sequential(uint64_t core, uint64_t* pc_nid, uint64_t* register_file_n
         format_comment("new-core-%lu-register-data-flow", core),
         "asserting new register data flow == new core-0 register data flow");
   else if (SHARED_REGISTERS) {
-    if (core < CORES - 1)
+    if (core < number_of_cores - 1)
       state_register_file_nid = register_data_flow_nid;
     else
-      next_register_file_nid = new_binary(OP_NEXT, SID_REGISTER_STATE,
-        register_file_nid, register_data_flow_nid, "register file");
+      next_register_file_nid = new_next(SID_REGISTER_STATE,
+        get_for(0, state_register_file_nids), register_data_flow_nid, "register file");
   } else
-    next_register_file_nid = new_binary(OP_NEXT, SID_REGISTER_STATE,
+    next_register_file_nid = new_next(SID_REGISTER_STATE,
       register_file_nid, register_data_flow_nid, "register file");
+
+  set_for(core, next_register_file_nids, next_register_file_nid);
+  set_for(core, sync_register_file_nids, sync_register_file_nid);
 
   // update memory data flow
 
+  next_main_memory_nid = UNUSED;
+  sync_main_memory_nid = UNUSED;
+
   if (SYNCHRONIZED_MEMORY)
     if (core == 0) {
-      next_main_memory_nid = new_binary(OP_NEXT, SID_MEMORY_STATE,
+      next_main_memory_nid = new_next(SID_MEMORY_STATE,
         memory_nid, memory_data_flow_nid, "main memory");
 
       eval_core_0_memory_data_flow_nid = memory_data_flow_nid;
     } else
-      next_main_memory_nid = new_property(OP_CONSTRAINT,
+      sync_main_memory_nid = new_property(OP_CONSTRAINT,
         new_binary_boolean(OP_EQ,
           memory_data_flow_nid,
           eval_core_0_memory_data_flow_nid,
@@ -8134,48 +9848,42 @@ void rotor_sequential(uint64_t core, uint64_t* pc_nid, uint64_t* register_file_n
         format_comment("new-core-%lu-memory-data-flow", core),
         "asserting new memory data flow == new core-0 memory data flow");
   else if (SHARED_MEMORY) {
-    if (core < CORES - 1)
+    if (core < number_of_cores - 1)
       state_main_memory_nid = memory_data_flow_nid;
     else
-      next_main_memory_nid = new_binary(OP_NEXT, SID_MEMORY_STATE,
-        memory_nid, memory_data_flow_nid, "main memory");
+      next_main_memory_nid = new_next(SID_MEMORY_STATE,
+        get_for(0, state_main_memory_nids), memory_data_flow_nid, "main memory");
   } else
-    next_main_memory_nid = new_binary(OP_NEXT, SID_MEMORY_STATE,
+    next_main_memory_nid = new_next(SID_MEMORY_STATE,
       memory_nid, memory_data_flow_nid, "main memory");
+
+  set_for(core, next_main_memory_nids, next_main_memory_nid);
+  set_for(core, sync_main_memory_nids, sync_main_memory_nid);
 }
 
 void rotor_properties(uint64_t core, uint64_t* ir_nid, uint64_t* c_ir_nid,
-  uint64_t* known_instructions_nid, uint64_t* known_compressed_instructions_nid,
-  uint64_t* control_flow_nid, uint64_t* register_file_nid) {
-
+  uint64_t* instruction_ID_nids, uint64_t* control_flow_nid, uint64_t* register_file_nid) {
   // mandatory state properties
 
-  prop_illegal_instruction_nid = state_property(core,
+  set_for(core, prop_illegal_instruction_nids, state_property(core,
     UNUSED,
-    decode_illegal_shamt(ir_nid),
+    is_illegal_shamt(ir_nid),
     format_comment("core-%lu-illegal-instruction", core),
-    format_comment("core-%lu illegal instruction", core));
+    format_comment("core-%lu illegal instruction", core)));
 
-  prop_illegal_compressed_instruction_nid = state_property(core,
+  set_for(core, prop_illegal_compressed_instruction_nids, state_property(core,
     UNUSED,
-    decode_illegal_compressed_instruction_imm_shamt(c_ir_nid),
+    is_illegal_compressed_instruction_imm_shamt(c_ir_nid),
     format_comment("core-%lu-illegal-compressed-instruction", core),
-    format_comment("core-%lu illegal compressed instruction", core));
+    format_comment("core-%lu illegal compressed instruction", core)));
 
-  if (known_compressed_instructions_nid != UNUSED)
-    known_instructions_nid = new_ternary(OP_ITE, SID_BOOLEAN,
-      is_compressed_instruction(ir_nid),
-      known_compressed_instructions_nid,
-      known_instructions_nid,
-      "is known uncompressed or compressed instruction?");
-
-  prop_is_instruction_known_nid = state_property(core,
-    known_instructions_nid,
+  set_for(core, prop_is_instruction_known_nids, state_property(core,
+    is_enabled(get_for(core, instruction_ID_nids)),
     UNUSED,
     format_comment("core-%lu-known-instructions", core),
-    format_comment("core-%lu known instructions", core));
+    format_comment("core-%lu known instructions", core)));
 
-  prop_next_fetch_unaligned_nid = state_property(core,
+  set_for(core, prop_next_fetch_unaligned_nids, state_property(core,
     new_binary_boolean(OP_EQ,
       new_binary(OP_AND, SID_MACHINE_WORD,
         control_flow_nid,
@@ -8185,106 +9893,180 @@ void rotor_properties(uint64_t core, uint64_t* ir_nid, uint64_t* c_ir_nid,
       "next pc unaligned"),
     UNUSED,
     format_comment("core-%lu-fetch-unaligned", core),
-    format_comment("core-%lu imminent unaligned fetch", core));
+    format_comment("core-%lu imminent unaligned fetch", core)));
 
-  prop_next_fetch_seg_faulting_nid = state_property(core,
-    is_address_in_code_segment(control_flow_nid),
+  set_for(core, prop_next_fetch_seg_faulting_nids, state_property(core,
+    is_address_in_machine_word_in_code_segment(control_flow_nid),
     UNUSED,
     format_comment("core-%lu-fetch-seg-fault", core),
-    format_comment("core-%lu imminent fetch segmentation fault", core));
+    format_comment("core-%lu imminent fetch segmentation fault", core)));
 
-  // optional state properties
-
-  if (exclude_a0_from_rd)
-    prop_exclude_a0_from_rd_nid = state_property(core,
-      new_binary_boolean(OP_NEQ,
-        get_instruction_rd(ir_nid),
-        NID_A0,
-        "rd != a0"),
-      UNUSED,
-      format_comment("core-%lu-exclude-a0-from-rd", core),
-      format_comment("core-%lu only brk and read system call may update a0", core));
+  // optional arithmetic properties
 
   if (check_division_by_zero)
-    prop_division_by_zero_nid = state_property(core,
+    set_for(core, prop_division_by_zero_nids, state_property(core,
       UNUSED,
-      decode_division_remainder_by_zero(ir_nid, register_file_nid),
+      is_division_remainder_by_zero(ir_nid, register_file_nid),
       format_comment("core-%lu-division-by-zero", core),
-      format_comment("core-%lu division by zero", core));
+      format_comment("core-%lu division by zero", core)));
 
   if (check_division_overflow)
-    prop_signed_division_overflow_nid = state_property(core,
+    set_for(core, prop_signed_division_overflow_nids, state_property(core,
       UNUSED,
-      decode_signed_division_remainder_overflow(ir_nid, register_file_nid),
+      is_signed_division_remainder_overflow(ir_nid, register_file_nid),
       format_comment("core-%lu-signed-division-overflow", core),
-      format_comment("core-%lu signed division overflow", core));
+      format_comment("core-%lu signed division overflow", core)));
 
   // segmentation faults in main memory
 
   if (check_seg_faults) {
-    prop_load_seg_faulting_nid = state_property(core,
+    set_for(core, prop_load_seg_faulting_nids, state_property(core,
       load_no_seg_faults(ir_nid, register_file_nid),
       UNUSED,
       format_comment("core-%lu-load-seg-fault", core),
-      format_comment("core-%lu load segmentation fault", core));
+      format_comment("core-%lu load segmentation fault", core)));
 
-    prop_store_seg_faulting_nid = state_property(core,
+    set_for(core, prop_store_seg_faulting_nids, state_property(core,
       store_no_seg_faults(ir_nid, register_file_nid),
       UNUSED,
       format_comment("core-%lu-store-seg-fault", core),
-      format_comment("core-%lu store segmentation fault", core));
+      format_comment("core-%lu store segmentation fault", core)));
 
-    prop_compressed_load_seg_faulting_nid = state_property(core,
+    set_for(core, prop_compressed_load_seg_faulting_nids, state_property(core,
       compressed_load_no_seg_faults(c_ir_nid, register_file_nid),
       UNUSED,
       format_comment("core-%lu-compressed-load-seg-fault", core),
-      format_comment("core-%lu compressed load segmentation fault", core));
+      format_comment("core-%lu compressed load segmentation fault", core)));
 
-    prop_compressed_store_seg_faulting_nid = state_property(core,
+    set_for(core, prop_compressed_store_seg_faulting_nids, state_property(core,
       compressed_store_no_seg_faults(c_ir_nid, register_file_nid),
       UNUSED,
       format_comment("core-%lu-compressed-store-seg-fault", core),
-      format_comment("core-%lu compressed store segmentation fault", core));
+      format_comment("core-%lu compressed store segmentation fault", core)));
 
     // TODO: check stack pointer segfault earlier upon sp update
 
-    prop_stack_seg_faulting_nid = state_property(core,
-      is_address_in_stack_segment(load_register_value(NID_SP, "sp value", register_file_nid)),
+    set_for(core, prop_stack_seg_faulting_nids, state_property(core,
+      is_address_in_machine_word_in_stack_segment(load_register_value(NID_SP, "sp value", register_file_nid)),
       UNUSED,
       format_comment("core-%lu-stack-seg-fault", core),
-      format_comment("core-%lu stack segmentation fault", core));
+      format_comment("core-%lu stack segmentation fault", core)));
   }
 }
 
-void rotor() {
+void load_binary(uint64_t binary) {
+  if (binary < number_of_binaries) {
+    restore_binary(binary);
+
+    reset_interpreter();
+    reset_profiler();
+    reset_microkernel();
+
+    current_context = create_context(MY_CONTEXT, 0);
+
+    // assert: number_of_remaining_arguments() > 0
+
+    boot_loader(current_context);
+
+    restore_context(current_context);
+
+    // assert: allowances are multiples of word size
+
+    heap_initial_size = get_program_break(current_context) - get_heap_seg_start(current_context);
+
+    if (heap_initial_size > heap_allowance)
+      heap_allowance = round_up(heap_initial_size, PAGESIZE);
+
+    heap_start = get_heap_seg_start(current_context);
+    heap_size  = heap_allowance;
+
+    stack_initial_size = VIRTUALMEMORYSIZE * GIGABYTE - *(get_regs(current_context) + REG_SP);
+
+    if (stack_initial_size > stack_allowance)
+      stack_allowance = round_up(stack_initial_size, PAGESIZE);
+
+    stack_start = VIRTUALMEMORYSIZE * GIGABYTE - stack_allowance;
+    stack_size  = stack_allowance;
+
+    // assert: stack_start >= heap_start + heap_size > 0
+  } else {
+    code_start = 4096;
+    code_size  = 7 * 4;
+
+    data_start = 8192;
+    data_size  = 0;
+
+    heap_initial_size = 0;
+
+    heap_start = 12288;
+    heap_size  = heap_allowance;
+
+    stack_initial_size = 0;
+
+    stack_start = VIRTUALMEMORYSIZE * GIGABYTE - stack_allowance;
+    stack_size  = stack_allowance;
+
+    // assert: stack_start >= heap_start + heap_size > 0
+  }
+}
+
+void model_rotor() {
   uint64_t i;
   uint64_t core;
 
   w = w
     + dprintf(output_fd, "; %s\n\n", SELFIE_URL)
     + dprintf(output_fd, "; BTOR2 file %s generated by %s\n\n", model_name, selfie_name);
-  if (check_exit_code == 0)
-    w = w + dprintf(output_fd, "; with %s\n", exit_code_check_option);
+  if (check_bad_exit_code == 0)
+    w = w + dprintf(output_fd, "; with %s\n", bad_exit_code_check_option);
+  if (check_exit_codes == 0)
+    w = w + dprintf(output_fd, "; with %s\n", exit_codes_check_option);
   if (check_division_by_zero == 0)
     w = w + dprintf(output_fd, "; with %s\n", division_by_zero_check_option);
   if (check_division_overflow == 0)
     w = w + dprintf(output_fd, "; with %s\n", division_overflow_check_option);
   if (check_seg_faults == 0)
     w = w + dprintf(output_fd, "; with %s\n", seg_faults_check_option);
-  w = w + dprintf(output_fd, "; with %s %lu\n", cores_option, CORES);
-  w = w + dprintf(output_fd, "; with %s %lu\n", heap_allowance_option, heap_allowance);
-  w = w + dprintf(output_fd, "; with %s %lu\n\n", stack_allowance_option, stack_allowance);
-  if (binary_name) {
-    w = w + dprintf(output_fd, "; RISC-V code obtained from %s and invoked as:", binary_name);
-    i = 0;
-    while (i < number_of_remaining_arguments()) {
-      w = w + dprintf(output_fd, " %s", (char*) *(remaining_arguments() + i));
-      i = i + 1;
-    }
+  w = w + dprintf(output_fd, "; with %s %lu\n", cores_option, number_of_cores);
+  w = w + dprintf(output_fd, "; with %s %lu (%lu-bit virtual address space)\n",
+    virtual_address_space_option, VIRTUAL_ADDRESS_SPACE, VIRTUAL_ADDRESS_SPACE);
+  w = w + dprintf(output_fd, "; with %s %lu (%lu-bit code words)\n",
+    code_word_size_option, CODEWORDSIZEINBITS, CODEWORDSIZEINBITS);
+  w = w + dprintf(output_fd, "; with %s %lu (%lu-bit memory words)\n",
+    memory_word_size_option, MEMORYWORDSIZEINBITS, MEMORYWORDSIZEINBITS);
+  w = w + dprintf(output_fd, "; with %s %lu (%lu bytes initial heap size)\n",
+    heap_allowance_option, heap_allowance, heap_initial_size);
+  w = w + dprintf(output_fd, "; with %s %lu (%lu bytes initial stack size)\n\n",
+    stack_allowance_option, stack_allowance, stack_initial_size);
+  i = 0;
+  while (i < number_of_binaries) {
+    w = w + dprintf(output_fd, "; for RISC-V executable obtained from %s\n",
+      get_for(i, binary_names));
+    w = w + dprintf(output_fd, "; with %lu bytes of code and %lu bytes of data\n\n",
+      get_for(i, code_sizes), get_for(i, data_sizes));
+    i = i + 1;
+  }
+  if (number_of_binaries > 0) {
+    w = w + dprintf(output_fd, "; RISC-V code invoked ");
+    i = 1;
+    if (i < number_of_remaining_arguments()) {
+      w = w + dprintf(output_fd, "with console arguments:");
+      while (i < number_of_remaining_arguments()) {
+        w = w + dprintf(output_fd, " %s", (char*) *(remaining_arguments() + i));
+        i = i + 1;
+      }
+    } else
+      w = w + dprintf(output_fd, "without console arguments");
     w = w + dprintf(output_fd, "\n\n");
   }
 
-  init_model_generator();
+  init_model();
+
+  init_interface_sorts();
+  init_interface_kernel();
+
+  init_register_file_sorts();
+  init_memory_sorts(max_code_size);
 
   print_interface_sorts();
   print_interface_kernel();
@@ -8292,13 +10074,26 @@ void rotor() {
   print_register_sorts();
   print_memory_sorts();
 
-  new_segmentation();
+  init_kernels(number_of_cores);
+  init_register_files(number_of_cores);
+  init_memories(number_of_cores);
 
-  print_segmentation();
+  init_instruction_mnemonics();
+  init_instruction_sorts();
+  init_compressed_instruction_sorts();
+
+  init_decoders(number_of_cores);
+  init_cores(number_of_cores);
+
+  init_properties(number_of_cores);
 
   core = 0;
 
-  while (core < CORES) {
+  while (core < number_of_cores) {
+    load_binary(core);
+
+    new_segmentation(core);
+
     new_kernel_state(core, 1);
 
     new_core_state(core);
@@ -8309,34 +10104,34 @@ void rotor() {
 
     new_memory_state(core);
 
-    rotor_combinational(state_core_pc_nid, state_code_segment_nid,
+    rotor_combinational(core, state_pc_nid, state_code_segment_nid,
       state_register_file_nid, state_main_memory_nid);
-    kernel_combinational(state_core_pc_nid, eval_core_ir_nid,
-      eval_core_compressed_instruction_control_flow_nid,
-      eval_core_compressed_instruction_register_data_flow_nid,
-      eval_core_compressed_instruction_memory_data_flow_nid,
+    kernel_combinational(state_pc_nid, eval_ir_nid,
+      eval_compressed_instruction_control_flow_nid,
+      eval_compressed_instruction_register_data_flow_nid,
+      eval_compressed_instruction_memory_data_flow_nid,
       next_program_break_nid, next_file_descriptor_nid,
       state_readable_bytes_nid, state_read_bytes_nid,
       state_register_file_nid, state_main_memory_nid);
 
-    rotor_sequential(core, state_core_pc_nid,
+    rotor_sequential(core, state_pc_nid,
       state_register_file_nid, state_main_memory_nid,
-      eval_core_control_flow_nid,
-      eval_core_register_data_flow_nid,
-      eval_core_memory_data_flow_nid);
+      eval_control_flow_nid,
+      eval_register_data_flow_nid,
+      eval_memory_data_flow_nid);
     kernel_sequential(core,
       state_program_break_nid, state_file_descriptor_nid,
       state_readable_bytes_nid, state_read_bytes_nid,
       eval_program_break_nid, eval_file_descriptor_nid,
       eval_still_reading_active_read_nid, eval_more_than_one_readable_byte_to_read_nid,
-      eval_core_ir_nid, state_register_file_nid);
+      eval_ir_nid, state_register_file_nid);
 
     rotor_properties(core,
-      eval_core_ir_nid, eval_core_c_ir_nid,
-      eval_known_instructions_nid, eval_known_compressed_instructions_nid,
-      eval_core_control_flow_nid, state_register_file_nid);
+      eval_ir_nid, eval_c_ir_nid,
+      eval_instruction_ID_nids, eval_control_flow_nid,
+      state_register_file_nid);
     kernel_properties(core,
-      eval_core_ir_nid,
+      eval_ir_nid,
       state_read_bytes_nid,
       state_register_file_nid);
 
@@ -8346,157 +10141,781 @@ void rotor() {
   }
 }
 
+// -----------------------------------------------------------------
+// ---------------------------- EMULATOR ---------------------------
+// -----------------------------------------------------------------
+
+void save_binary(uint64_t binary) {
+  set_for(binary, binary_names, (uint64_t*) binary_name);
+
+  set_for(binary, e_entries, (uint64_t*) e_entry);
+
+  set_for(binary, code_binaries, (uint64_t*) code_binary);
+  set_for(binary, data_binaries, (uint64_t*) data_binary);
+
+  set_for(binary, code_starts, (uint64_t*) code_start);
+  set_for(binary, code_sizes, (uint64_t*) code_size);
+  set_for(binary, data_starts, (uint64_t*) data_start);
+  set_for(binary, data_sizes, (uint64_t*) data_size);
+}
+
+void restore_binary(uint64_t binary) {
+  binary_name = (char*) get_for(binary, binary_names);
+
+  e_entry = (uint64_t) get_for(binary, e_entries);
+
+  code_binary = get_for(binary, code_binaries);
+  data_binary = get_for(binary, data_binaries);
+
+  code_start = (uint64_t) get_for(binary, code_starts);
+  code_size  = (uint64_t) get_for(binary, code_sizes);
+  data_start = (uint64_t) get_for(binary, data_starts);
+  data_size  = (uint64_t) get_for(binary, data_sizes);
+}
+
+void print_assembly(uint64_t core) {
+  uint64_t pc;
+  uint64_t ID;
+  char* mnemonic;
+  uint64_t* ir_nid;
+  uint64_t* c_ir_nid;
+  char* rd;
+  char* rs1;
+  char* rs2;
+  uint64_t I_imm;
+  uint64_t I_imm_32_bit;
+  uint64_t shamt;
+  uint64_t shamt_5_bit;
+  uint64_t S_imm;
+  uint64_t SB_imm;
+  uint64_t U_imm;
+  uint64_t UJ_imm;
+  uint64_t imm_shamt;
+
+  pc = eval_line_for(core, state_pc_nids);
+
+  if (number_of_cores > 1)
+    printf("core-%lu: ", core);
+
+  printf("0x%lX: ", pc);
+
+  ID = eval_line_for(core, eval_instruction_ID_nids);
+
+  mnemonic = get_instruction_mnemonic(ID);
+
+  ir_nid   = get_for(core, eval_ir_nids);
+  c_ir_nid = get_for(core, eval_c_ir_nids);
+
+  if (is_compressed_instruction_ID(ID) == 0) {
+    rd  = get_register_name(eval_line(get_instruction_rd(ir_nid)));
+    rs1 = get_register_name(eval_line(get_instruction_rs1(ir_nid)));
+    rs2 = get_register_name(eval_line(get_instruction_rs2(ir_nid)));
+
+    I_imm        = eval_line(get_instruction_I_immediate(ir_nid));
+    I_imm_32_bit = eval_line(get_instruction_I_32_bit_immediate(ir_nid));
+
+    shamt       = eval_line(get_instruction_shamt(ir_nid));
+    shamt_5_bit = eval_line(get_instruction_5_bit_shamt(ir_nid));
+
+    S_imm  = eval_line(get_instruction_S_immediate(ir_nid));
+    SB_imm = eval_line(get_instruction_SB_immediate(ir_nid));
+    U_imm  = eval_line(get_instruction_U_immediate(ir_nid));
+    UJ_imm = eval_line(get_instruction_UJ_immediate(ir_nid));
+  } else {
+    rd  = get_register_name(eval_line(get_compressed_instruction_rd(c_ir_nid)));
+    rs1 = get_register_name(eval_line(get_compressed_instruction_rs1(c_ir_nid)));
+    rs2 = get_register_name(eval_line(get_compressed_instruction_rs2(c_ir_nid)));
+
+    I_imm        = eval_line(get_compressed_instruction_CI_immediate(c_ir_nid));
+    I_imm_32_bit = eval_line(get_compressed_instruction_CI_32_bit_immediate(c_ir_nid));
+
+    shamt = eval_line(get_compressed_instruction_shamt(c_ir_nid));
+
+    SB_imm = eval_line(get_compressed_instruction_CB_offset(c_ir_nid));
+    UJ_imm = eval_line(get_compressed_instruction_CJ_offset(c_ir_nid));
+    if (is_CR_type(ID)) {
+      if (is_jump_CR_type(ID)) {
+        if (ID == ID_C_JR)
+          rd = get_register_name(REG_ZR);
+        else if (ID == ID_C_JALR)
+          rd = get_register_name(REG_RA);
+        I_imm = 0;
+        ID    = ID_JALR;
+      } else {
+        if (ID == ID_C_MV)
+          rs1 = get_register_name(REG_ZR);
+        else if (ID == ID_C_ADD)
+          rs1 = rd;
+        ID = ID_ADD;
+      }
+    } else if (is_CI_type(ID)) {
+      rs1 = rd;
+      if (ID == ID_C_LI) {
+        rs1 = get_register_name(REG_ZR);
+        ID  = ID_ADDI;
+      } else if (ID == ID_C_LUI) {
+        I_imm = eval_line(get_compressed_instruction_CUI_immediate(c_ir_nid));
+        ID    = ID_LUI;
+      } else if (ID == ID_C_ADDI)
+        ID = ID_ADDI;
+      else if (ID == ID_C_ADDIW)
+        ID = ID_ADDIW;
+      else if (ID == ID_C_ADDI16SP) {
+        rd    = get_register_name(REG_SP);
+        rs1   = rd;
+        I_imm = eval_line(get_compressed_instruction_CI16SP_immediate(c_ir_nid));
+        ID    = ID_ADDI;
+      } else if (ID == ID_C_ADDI4SPN) {
+        rd    = get_register_name(eval_line(get_compressed_instruction_rd_shift(c_ir_nid)));
+        rs1   = get_register_name(REG_SP);
+        I_imm = eval_line(get_compressed_instruction_CIW_immediate(c_ir_nid));
+        ID    = ID_ADDI;
+      } else if (ID == ID_C_SLLI)
+        ID    = ID_SLLI;
+      else {
+        rs1 = get_register_name(REG_SP);
+        if (ID == ID_C_LWSP) {
+          I_imm = eval_line(get_compressed_instruction_CI32_offset(c_ir_nid));
+          ID    = ID_LW;
+        } else if (ID == ID_C_LDSP) {
+          I_imm = eval_line(get_compressed_instruction_CI64_offset(c_ir_nid));
+          ID    = ID_LD;
+        }
+      }
+    } else if (is_CL_type(ID)) {
+      rd  = get_register_name(eval_line(get_compressed_instruction_rd_shift(c_ir_nid)));
+      rs1 = get_register_name(eval_line(get_compressed_instruction_rs1_shift(c_ir_nid)));
+      if (ID == ID_C_LW) {
+        I_imm = eval_line(get_compressed_instruction_CL32_offset(c_ir_nid));
+        ID    = ID_LW;
+      } else if (ID == ID_C_LD) {
+        I_imm = eval_line(get_compressed_instruction_CL64_offset(c_ir_nid));
+        ID    = ID_LD;
+      }
+    } else if (is_CS_type(ID)) {
+      rd  = get_register_name(eval_line(get_compressed_instruction_rs1_shift(c_ir_nid)));
+      rs1 = rd;
+      rs2 = get_register_name(eval_line(get_compressed_instruction_rs2_shift(c_ir_nid)));
+      if (ID == ID_C_SW) {
+        S_imm = eval_line(get_compressed_instruction_CS32_offset(c_ir_nid));
+        ID    = ID_SW;
+      } else if (ID == ID_C_SD) {
+        S_imm = eval_line(get_compressed_instruction_CS64_offset(c_ir_nid));
+        ID    = ID_SD;
+      } else if (is_register_CS_type(ID)) {
+        if (ID == ID_C_SUB)
+          ID = ID_SUB;
+        else if (ID == ID_C_XOR)
+          ID = ID_XOR;
+        else if (ID == ID_C_OR)
+          ID = ID_OR;
+        else if (ID == ID_C_AND)
+          ID = ID_AND;
+        else if (ID == ID_C_ADDW)
+          ID = ID_ADDW;
+        else if (ID == ID_C_SUBW)
+          ID = ID_SUBW;
+      } else {
+        rs1 = get_register_name(REG_SP);
+        rs2 = get_register_name(eval_line(get_compressed_instruction_rs2(c_ir_nid)));
+        if (ID == ID_C_SWSP) {
+          S_imm = eval_line(get_compressed_instruction_CSS32_offset(c_ir_nid));
+          ID    = ID_SW;
+        } else if (ID == ID_C_SDSP) {
+          S_imm = eval_line(get_compressed_instruction_CSS64_offset(c_ir_nid));
+          ID    = ID_SD;
+        }
+      }
+    } else if (is_CB_type(ID)) {
+      rd  = get_register_name(eval_line(get_compressed_instruction_rs1_shift(c_ir_nid)));
+      rs1 = rd;
+      rs2 = get_register_name(REG_ZR);
+
+      I_imm = eval_line(get_compressed_instruction_CB_offset(c_ir_nid));
+      if (ID == ID_C_BEQZ)
+        ID = ID_BEQ;
+      else if (ID == ID_C_BNEZ)
+        ID = ID_BNE;
+      else if (ID == ID_C_ANDI)
+        ID = ID_ANDI;
+      else if (ID == ID_C_SRLI)
+        ID = ID_C_SRLI;
+      else if (ID == ID_C_SRAI)
+        ID = ID_SRAI;
+    } else if (is_CJ_type(ID)) {
+      if (ID == ID_C_J)
+        rd = get_register_name(REG_ZR);
+      else if (ID == ID_C_JAL)
+        rd = get_register_name(REG_RA);
+      ID = ID_JAL;
+    }
+  }
+
+  printf("%s", get_instruction_mnemonic(ID));
+
+  if (is_R_type(ID))
+    printf(" %s,%s,%s", rd, rs1, rs2);
+  else if (is_I_type(ID)) {
+    if (is_shift_I_type(ID))
+      if (is_32_bit_shift_I_type(ID)) imm_shamt = shamt_5_bit; else imm_shamt = shamt;
+    else
+      if (ID == ID_ADDIW) imm_shamt = I_imm_32_bit; else imm_shamt = I_imm;
+    if (is_register_relative_I_type(ID))
+      printf(" %s,%ld(%s)", rd, imm_shamt, rs1);
+    else if (is_shift_I_type(ID))
+      printf(" %s,%s,0x%lX", rd, rs1, imm_shamt);
+    else
+      printf(" %s,%s,%ld", rd, rs1, imm_shamt);
+  } else if (is_S_type(ID))
+    printf(" %s,%ld(%s)", rs2, S_imm, rs1);
+  else if (is_SB_type(ID))
+    printf(" %s,%s,0x%lX <%ld>", rs1, rs2, pc + SB_imm,
+      signed_division(SB_imm, INSTRUCTIONSIZE));
+  else if (is_U_type(ID))
+    printf(" %s,0x%lX", rd, U_imm);
+  else if (ID == ID_JAL)
+    printf(" %s,0x%lX <%ld>", rd, pc + UJ_imm,
+      signed_division(UJ_imm, INSTRUCTIONSIZE));
+
+  if (mnemonic != get_instruction_mnemonic(ID))
+    printf(" (%s)", mnemonic);
+}
+
+void print_multicore_assembly() {
+  uint64_t core;
+
+  core = 0;
+
+  while (core < number_of_cores) {
+    print_assembly(core);
+
+    core = core + 1;
+
+    if (core < number_of_cores)
+      printf("; ");
+  }
+
+  printf("\n");
+}
+
+uint64_t eval_properties(uint64_t core) {
+  uint64_t halt;
+
+  halt = 0;
+
+  // mandatory state properties
+
+  halt = halt + eval_property_for(core, prop_illegal_instruction_nids);
+  halt = halt + eval_property_for(core, prop_illegal_compressed_instruction_nids);
+  halt = halt + eval_property_for(core, prop_is_instruction_known_nids);
+  halt = halt + eval_property_for(core, prop_next_fetch_unaligned_nids);
+  halt = halt + eval_property_for(core, prop_next_fetch_seg_faulting_nids);
+  halt = halt + eval_property_for(core, prop_is_syscall_id_known_nids);
+
+  // optional exit properties
+
+  halt = halt + eval_property_for(core, prop_bad_exit_code_nids);
+
+  if (core == number_of_cores - 1) {
+    // if property is falsified rotor terminates evaluation in current step
+    are_exit_codes_different = are_exit_codes_different + eval_property(core, prop_exit_codes_nid);
+
+    // if property is satisfied rotor terminates evaluation in current step
+    eval_property(core, prop_all_cores_exited_nid);
+  }
+
+  // optional arithmetic properties
+
+  halt = halt + eval_property_for(core, prop_division_by_zero_nids);
+  halt = halt + eval_property_for(core, prop_signed_division_overflow_nids);
+
+  // optional user code segmentation fault checks
+
+  halt = halt + eval_property_for(core, prop_load_seg_faulting_nids);
+  halt = halt + eval_property_for(core, prop_store_seg_faulting_nids);
+  halt = halt + eval_property_for(core, prop_compressed_load_seg_faulting_nids);
+  halt = halt + eval_property_for(core, prop_compressed_store_seg_faulting_nids);
+  halt = halt + eval_property_for(core, prop_stack_seg_faulting_nids);
+
+  // optional kernel segmentation fault checks
+
+  halt = halt + eval_property_for(core, prop_brk_seg_faulting_nids);
+  halt = halt + eval_property_for(core, prop_openat_seg_faulting_nids);
+  halt = halt + eval_property_for(core, prop_read_seg_faulting_nids);
+  halt = halt + eval_property_for(core, prop_write_seg_faulting_nids);
+
+  // synchronizing program counters
+
+  halt = halt + eval_property_for(core, sync_pc_nids);
+
+  return halt != 0;
+}
+
+uint64_t eval_multicore_properties() {
+  uint64_t halt;
+  uint64_t core;
+
+  halt = 0;
+
+  core = 0;
+
+  while (core < number_of_cores) {
+    halt = halt + eval_properties(core);
+
+    core = core + 1;
+  }
+
+  return halt != 0;
+}
+
+uint64_t eval_sequential(uint64_t core) {
+  uint64_t halt;
+
+  halt = 1;
+
+  if (core == number_of_cores - 1) {
+    halt = halt * eval_next(next_program_break_nid);
+    halt = halt * eval_next(next_file_descriptor_nid);
+  }
+
+  halt = halt * eval_next_for(core, next_readable_bytes_nids);
+  halt = halt * eval_next_for(core, next_read_bytes_nids);
+
+  halt = halt * eval_next_for(core, next_pc_nids);
+
+  halt = halt * eval_next_for(core, next_register_file_nids);
+  halt = halt * eval_next_for(core, next_code_segment_nids);
+  halt = halt * eval_next_for(core, next_main_memory_nids);
+
+  return halt != 0;
+}
+
+uint64_t eval_multicore_sequential() {
+  uint64_t halt;
+  uint64_t core;
+
+  halt = 1;
+
+  core = 0;
+
+  while (core < number_of_cores) {
+    if (eval_sequential(core)) {
+      printf("%s: %s called exit(%lu) on core-%lu @ 0x%lX after %lu steps", selfie_name,
+        model_name,
+        eval_line(load_register_value(NID_A0, "exit code", get_for(core, state_register_file_nids))),
+        core,
+        eval_line_for(core, state_pc_nids),
+        next_step - current_offset);
+      if (any_input) printf(" with input %lu\n", current_input); else printf("\n");
+    } else
+      halt = 0;
+
+    core = core + 1;
+  }
+
+  return halt != 0;
+}
+
+void apply_sequential(uint64_t core) {
+  if (core == number_of_cores - 1) {
+    apply_next(next_program_break_nid);
+    apply_next(next_file_descriptor_nid);
+  }
+
+  apply_next_for(core, next_readable_bytes_nids);
+  apply_next_for(core, next_read_bytes_nids);
+
+  apply_next_for(core, next_pc_nids);
+
+  apply_next_for(core, next_register_file_nids);
+  apply_next_for(core, next_code_segment_nids);
+  apply_next_for(core, next_main_memory_nids);
+}
+
+void apply_multicore_sequential() {
+  uint64_t core;
+
+  core = 0;
+
+  while (core < number_of_cores) {
+    apply_sequential(core);
+
+    core = core + 1;
+  }
+}
+
+void save_states(uint64_t core) {
+  if (core == number_of_cores - 1) {
+    save_state(next_program_break_nid);
+    save_state(next_file_descriptor_nid);
+  }
+
+  save_state_for(core, next_readable_bytes_nids);
+  save_state_for(core, next_read_bytes_nids);
+
+  save_state_for(core, next_pc_nids);
+
+  save_state_for(core, next_register_file_nids);
+  save_state_for(core, next_code_segment_nids);
+  save_state_for(core, next_main_memory_nids);
+}
+
+void save_multicore_states() {
+  uint64_t core;
+
+  core = 0;
+
+  while (core < number_of_cores) {
+    save_states(core);
+
+    core = core + 1;
+  }
+}
+
+void restore_states(uint64_t core) {
+  if (core == number_of_cores - 1) {
+    restore_state(next_program_break_nid);
+    restore_state(next_file_descriptor_nid);
+  }
+
+  restore_state_for(core, next_readable_bytes_nids);
+  restore_state_for(core, next_read_bytes_nids);
+
+  restore_state_for(core, next_pc_nids);
+
+  restore_state_for(core, next_register_file_nids);
+  restore_state_for(core, next_code_segment_nids);
+  restore_state_for(core, next_main_memory_nids);
+}
+
+void restore_multicore_states() {
+  uint64_t core;
+
+  core = 0;
+
+  while (core < number_of_cores) {
+    restore_states(core);
+
+    core = core + 1;
+  }
+}
+
+void eval_multicore_states() {
+  while (1) {
+    if (output_assembly)
+      print_multicore_assembly();
+
+    if (eval_multicore_properties())
+      return;
+
+    if (eval_multicore_sequential()) {
+      if (number_of_cores > 1) {
+        printf("%s: %s called exit on all cores after %lu steps", selfie_name,
+          model_name, next_step - current_offset);
+        if (any_input) printf(" with input %lu\n", current_input); else printf("\n");
+      }
+
+      return;
+    }
+
+    if (current_step - current_offset >= 100000 - 1) {
+      printf("%s: terminating %s after %lu steps", selfie_name,
+        model_name, next_step - current_offset);
+      if (any_input) printf(" with input %lu\n", current_input); else printf("\n");
+
+      return;
+    }
+
+    if (first_input) {
+      save_multicore_states();
+
+      first_input = 0;
+    }
+
+    apply_multicore_sequential();
+
+    current_step = next_step;
+
+    next_step = next_step + 1;
+  }
+}
+
+void eval_rotor() {
+  if (number_of_binaries == number_of_cores) {
+    printf("%s: ********************************************************************************\n", selfie_name);
+
+    current_offset = 0;
+    current_step   = 0;
+
+    input_steps   = 0;
+    current_input = 0;
+
+    save_multicore_states();
+
+    while (current_input < 256) {
+      next_step = next_step + 1;
+
+      first_input = 0;
+      any_input   = 0;
+
+      eval_multicore_states();
+
+      if (min_steps > next_step - current_offset) {
+        min_steps = next_step - current_offset;
+
+        min_input = current_input;
+      }
+
+      if (max_steps < next_step - current_offset) {
+        max_steps = next_step - current_offset;
+
+        max_input = current_input;
+      }
+
+      if (any_input) {
+        restore_multicore_states();
+
+        current_offset = next_step - input_steps;
+        current_step   = next_step;
+
+        current_input = current_input + 1;
+      } else {
+        printf("%s: executed %lu instructions without input\n", selfie_name, max_steps);
+
+        return;
+      }
+    }
+
+    printf("%s: executed between %lu instructions with input %lu and %lu instructions with input %lu\n", selfie_name,
+      min_steps, min_input, max_steps, max_input);
+
+    if (check_exit_codes)
+      if (number_of_binaries > 1) {
+        if (are_exit_codes_different)
+          printf("%s: exit codes are different for some input\n", selfie_name);
+        else
+          printf("%s: exit codes are equal for all considered inputs\n", selfie_name);
+      }
+  }
+}
+
+void disassemble_rotor(uint64_t core) {
+  uint64_t* pc_nid;
+  uint64_t* ir_nid;
+
+  if (core < number_of_binaries) {
+    printf("%s: ********************************************************************************\n", selfie_name);
+
+    pc_nid = get_for(core, state_pc_nids);
+
+    set_state(pc_nid, code_start);
+    set_step(pc_nid, next_step);
+
+    set_step(get_for(core, state_code_segment_nids), next_step);
+
+    ir_nid = get_for(core, eval_ir_nids);
+
+    current_step = next_step;
+
+    while (get_state(pc_nid) < code_start + code_size) {
+      next_step = next_step + 1;
+
+      print_assembly(core);
+      printf("\n");
+
+      if (eval_line(is_compressed_instruction(ir_nid)))
+        set_state(pc_nid, get_state(pc_nid) + 2);
+      else
+        set_state(pc_nid, get_state(pc_nid) + 4);
+
+      set_step(pc_nid, next_step);
+
+      set_step(get_for(core, state_code_segment_nids), next_step);
+
+      current_step = next_step;
+    }
+  }
+}
+
+uint64_t rotor_arguments() {
+  bad_exit_code_check_option = "-Pnobadexitcode";
+  exit_codes_check_option    = "-Pnoexitcodes";
+
+  division_by_zero_check_option  = "-Pnodivisionbyzero";
+  division_overflow_check_option = "-Pnodivisionoverflow";
+
+  seg_faults_check_option = "-Pnosegfaults";
+
+  cores_option                   = "-cores";
+  virtual_address_space_option   = "-virtualaddressspace";
+  code_word_size_option          = "-codewordsize";
+  memory_word_size_option        = "-memorywordsize";
+  heap_allowance_option          = "-heapallowance";
+  stack_allowance_option         = "-stackallowance";
+
+  bad_exit_code = atoi(peek_argument(0));
+
+  while (1) {
+    if (number_of_remaining_arguments() > 1) {
+      if (string_compare(peek_argument(1), "-m")) {
+        evaluate_model = 1;
+
+        get_argument();
+      } else if (string_compare(peek_argument(1), "-d")) {
+        evaluate_model  = 1;
+        output_assembly = 1;
+
+        get_argument();
+      } else if (string_compare(peek_argument(1), "-s")) {
+        disassemble_model = 1;
+
+        get_argument();
+      } else if (string_compare(peek_argument(1), "-l")) {
+        get_argument();
+
+        if (number_of_remaining_arguments() > 1) {
+          if (number_of_binaries < MAX_BINARIES) {
+            selfie_load(peek_argument(1));
+
+            save_binary(number_of_binaries);
+
+            number_of_binaries = number_of_binaries + 1;
+
+            if (number_of_binaries > number_of_cores)
+              number_of_cores = number_of_binaries;
+
+            if (code_size > max_code_size)
+              max_code_size = code_size;
+
+            get_argument();
+          } else
+          return EXITCODE_BADARGUMENTS;
+        } else
+          return EXITCODE_BADARGUMENTS;
+      } else if (string_compare(peek_argument(1), bad_exit_code_check_option)) {
+        check_bad_exit_code = 0;
+
+        get_argument();
+      } else if (string_compare(peek_argument(1), exit_codes_check_option)) {
+        check_exit_codes = 0;
+
+        get_argument();
+      } else if (string_compare(peek_argument(1), division_by_zero_check_option)) {
+        check_division_by_zero = 0;
+
+        get_argument();
+      } else if (string_compare(peek_argument(1), division_overflow_check_option)) {
+        check_division_overflow = 0;
+
+        get_argument();
+      } else if (string_compare(peek_argument(1), seg_faults_check_option)) {
+        check_seg_faults = 0;
+
+        get_argument();
+      } else if (string_compare(peek_argument(1), cores_option)) {
+        get_argument();
+
+        if (number_of_remaining_arguments() > 1) {
+          number_of_cores = atoi(peek_argument(1));
+
+          if (number_of_cores < number_of_binaries)
+            number_of_cores = number_of_binaries;
+
+          get_argument();
+        } else
+          return EXITCODE_BADARGUMENTS;
+      } else if (string_compare(peek_argument(1), virtual_address_space_option)) {
+        get_argument();
+
+        if (number_of_remaining_arguments() > 1) {
+          VIRTUAL_ADDRESS_SPACE = atoi(peek_argument(1));
+
+          get_argument();
+        } else
+          return EXITCODE_BADARGUMENTS;
+      } else if (string_compare(peek_argument(1), code_word_size_option)) {
+        get_argument();
+
+        if (number_of_remaining_arguments() > 1) {
+          CODEWORDSIZEINBITS = get_power_of_two_size_in_bytes(atoi(peek_argument(1))) * 8;
+
+          get_argument();
+        } else
+          return EXITCODE_BADARGUMENTS;
+      } else if (string_compare(peek_argument(1), memory_word_size_option)) {
+        get_argument();
+
+        if (number_of_remaining_arguments() > 1) {
+          MEMORYWORDSIZEINBITS = get_power_of_two_size_in_bytes(atoi(peek_argument(1))) * 8;
+
+          get_argument();
+        } else
+          return EXITCODE_BADARGUMENTS;
+      } else if (string_compare(peek_argument(1), heap_allowance_option)) {
+        get_argument();
+
+        if (number_of_remaining_arguments() > 1) {
+          heap_allowance = round_up(atoi(peek_argument(1)), WORDSIZE);
+
+          get_argument();
+        } else
+          return EXITCODE_BADARGUMENTS;
+      } else if (string_compare(peek_argument(1), stack_allowance_option)) {
+        get_argument();
+
+        if (number_of_remaining_arguments() > 1) {
+          stack_allowance = round_up(atoi(peek_argument(1)), WORDSIZE);
+
+          get_argument();
+        } else
+          return EXITCODE_BADARGUMENTS;
+      } else if (string_compare(peek_argument(1), "-")) {
+        get_argument();
+
+        return EXITCODE_NOERROR;
+      } else
+        return EXITCODE_BADARGUMENTS;
+    } else
+      return EXITCODE_NOERROR;
+  }
+}
+
 uint64_t selfie_model() {
-  uint64_t model_arguments;
+  uint64_t exit_code;
 
   if (string_compare(argument, "-")) {
     if (number_of_remaining_arguments() > 0) {
-      bad_exit_code = atoi(peek_argument(0));
-
-      exit_code_check_option         = "-Pnoexitcode";
-      division_by_zero_check_option  = "-Pnodivbyzero";
-      division_overflow_check_option = "-Pnodivoverflow";
-      seg_faults_check_option        = "-Pnosegfaults";
-      cores_option                   = "-cores";
-      heap_allowance_option          = "-heap";
-      stack_allowance_option         = "-stack";
-
-      model_arguments = 0;
-
-      while (model_arguments == 0) {
-        if (number_of_remaining_arguments() > 1) {
-          if (string_compare(peek_argument(1), exit_code_check_option)) {
-            check_exit_code = 0;
-
-            get_argument();
-          } else if (string_compare(peek_argument(1), division_by_zero_check_option)) {
-            check_division_by_zero = 0;
-
-            get_argument();
-          } else if (string_compare(peek_argument(1), division_overflow_check_option)) {
-            check_division_overflow = 0;
-
-            get_argument();
-          } else if (string_compare(peek_argument(1), seg_faults_check_option)) {
-            check_seg_faults = 0;
-
-            get_argument();
-          } else if (string_compare(peek_argument(1), cores_option)) {
-            get_argument();
-
-            if (number_of_remaining_arguments() > 1) {
-              CORES = atoi(peek_argument(1));
-
-              get_argument();
-            } else
-              return EXITCODE_BADARGUMENTS;
-          } else if (string_compare(peek_argument(1), heap_allowance_option)) {
-            get_argument();
-
-            if (number_of_remaining_arguments() > 1) {
-              heap_allowance = round_up(atoi(peek_argument(1)), WORDSIZE);
-
-              get_argument();
-            } else
-              return EXITCODE_BADARGUMENTS;
-          } else if (string_compare(peek_argument(1), stack_allowance_option)) {
-            get_argument();
-
-            if (number_of_remaining_arguments() > 1) {
-              stack_allowance = round_up(atoi(peek_argument(1)), WORDSIZE);
-
-              get_argument();
-            } else
-              return EXITCODE_BADARGUMENTS;
-          } else if (string_compare(peek_argument(1), "-")) {
-            get_argument();
-
-            model_arguments = 1;
-          } else
-            return EXITCODE_BADARGUMENTS;
-        } else
-          model_arguments = 1;
-      }
+      init_binaries();
 
       if (code_size > 0) {
-        reset_interpreter();
-        reset_profiler();
-        reset_microkernel();
+        save_binary(0);
 
-        init_memory(1);
+        number_of_binaries = 1;
 
-        current_context = create_context(MY_CONTEXT, 0);
-
-        // assert: number_of_remaining_arguments() > 0
-
-        boot_loader(current_context);
-
-        restore_context(current_context);
-
-        do_switch(current_context, TIMEROFF);
-
-        // assert: allowances are multiples of word size
-
-        if (get_program_break(current_context) - get_heap_seg_start(current_context) > heap_allowance)
-          heap_allowance = round_up(get_program_break(current_context) - get_heap_seg_start(current_context), PAGESIZE);
-
-        heap_start = get_heap_seg_start(current_context);
-        heap_size  = heap_allowance;
-
-        if (VIRTUALMEMORYSIZE * GIGABYTE - *(get_regs(current_context) + REG_SP) > stack_allowance)
-          stack_allowance = round_up(VIRTUALMEMORYSIZE * GIGABYTE - *(get_regs(current_context) + REG_SP), PAGESIZE);
-
-        stack_start = VIRTUALMEMORYSIZE * GIGABYTE - stack_allowance;
-        stack_size  = stack_allowance;
-
-        // assert: stack_start >= heap_start + heap_size > 0
-
-        CODE_LOADED = 1;
-
-        if (CORES > 1) {
-          SYNTHESIZE = 1;
-
-          SYNCHRONIZED_PC = 0;
-
-          SYNCHRONIZED_REGISTERS = 1;
-          SHARED_REGISTERS       = 0;
-
-          SYNCHRONIZED_MEMORY = 1;
-          SHARED_MEMORY       = 0;
-        }
-
-        model_name = replace_extension(binary_name, "-rotorized", "btor2");
+        max_code_size = code_size;
       } else {
-        code_start = 4096;
-        code_size  = 7 * 4;
+        number_of_binaries = 0;
 
-        data_start = 8192;
-        data_size  = 0;
+        max_code_size = 7 * 4;
+      }
 
-        heap_start = 12288;
-        heap_size  = heap_allowance;
+      exit_code = rotor_arguments();
 
-        stack_start = VIRTUALMEMORYSIZE * GIGABYTE - stack_allowance;
-        stack_size  = stack_allowance;
+      if (exit_code != EXITCODE_NOERROR)
+        return exit_code;
 
-        // assert: stack_start >= heap_start + heap_size > 0
+      if (number_of_binaries > 0) {
+        init_memory(number_of_binaries);
 
-        CODE_LOADED = 0;
-
-        SYNTHESIZE = 1;
-
-        SYNCHRONIZED_PC = 0;
-
-        SYNCHRONIZED_REGISTERS = 0;
-        SHARED_REGISTERS       = 0;
-
-        SYNCHRONIZED_MEMORY = 0;
-        SHARED_MEMORY       = 0;
-
-        if (IS64BITTARGET)
-          model_name = "64-bit-riscv-machine.btor2";
+        if (number_of_binaries < number_of_cores)
+          model_name = replace_extension((char*) get_for(0, binary_names), "-synthesize", "btor2");
         else
-          model_name = "32-bit-riscv-machine.btor2";
+          model_name = replace_extension((char*) get_for(0, binary_names), "-rotorized", "btor2");
+      } else {
+        if (IS64BITTARGET)
+          model_name = "64-bit-riscv-machine-synthesize.btor2";
+        else
+          model_name = "32-bit-riscv-machine-synthesize.btor2";
       }
 
       // assert: model_name is mapped and not longer than MAX_FILENAME_LENGTH
@@ -8514,12 +10933,18 @@ uint64_t selfie_model() {
       output_name = model_name;
       output_fd   = model_fd;
 
-      rotor();
+      model_rotor();
 
       output_name = (char*) 0;
       output_fd   = 1;
 
       printf("%s: %lu characters of model formulae written into %s\n", selfie_name, w, model_name);
+
+      if (evaluate_model)
+        eval_rotor();
+
+      if (disassemble_model)
+        disassemble_rotor(0);
 
       printf("%s: ################################################################################\n", selfie_name);
 
