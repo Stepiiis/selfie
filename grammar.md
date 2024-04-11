@@ -55,7 +55,7 @@ assignment = ( [ "*" ] identifier | "*" "(" expression ")" ) "=" expression .
 
 expression = arithmetic [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) arithmetic ] .
 
-arithmetic = term { ( "+" | "-" ) term } .
+arithmetic = term { ( "+" | "-" | "<<" | ">>" ) term } .
 
 term       = factor { ( "*" | "/" | "%" ) factor } .
 
