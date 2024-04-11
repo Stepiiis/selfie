@@ -457,6 +457,8 @@ uint64_t SYM_LEQ          = 26; // <=
 uint64_t SYM_GT           = 27; // >
 uint64_t SYM_GEQ          = 28; // >=
 uint64_t SYM_ELLIPSIS     = 29; // ...
+uint64_t SYM_LSHIFT       = 30; // <<
+uint64_t SYM_RSHIFT       = 31; // >>
 
 // symbols for bootstrapping
 
@@ -533,6 +535,8 @@ void init_scanner () {
   *(SYMBOLS + SYM_GT)           = (uint64_t) ">";
   *(SYMBOLS + SYM_GEQ)          = (uint64_t) ">=";
   *(SYMBOLS + SYM_ELLIPSIS)     = (uint64_t) "...";
+  *(SYMBOLS + SYM_LSHIFT)       = (uint64_t) "<<";
+  *(SYMBOLS + SYM_RSHIFT)       = (uint64_t) ">>";
 
   *(SYMBOLS + SYM_INT)      = (uint64_t) "int";
   *(SYMBOLS + SYM_CHAR)     = (uint64_t) "char";
@@ -668,6 +672,8 @@ uint64_t is_type();
 uint64_t is_value();
 uint64_t is_expression();
 uint64_t is_comparison();
+uint64_t is_shift();
+uint64_t is_arithmetic();
 uint64_t is_plus_or_minus();
 uint64_t is_mult_or_div_or_rem();
 uint64_t is_factor();
@@ -4016,8 +4022,12 @@ void get_symbol() {
           get_character();
 
           symbol = SYM_LEQ;
+        } else if (character == CHAR_LT) {
+          get_character();
+
+          symbol = SYM_LSHIFT;
         } else
-          symbol = SYM_LT;
+            symbol = SYM_LT;
       } else if (character == CHAR_GT) {
         get_character();
 
@@ -4025,8 +4035,12 @@ void get_symbol() {
           get_character();
 
           symbol = SYM_GEQ;
+        } else if (character == CHAR_GT) {
+          get_character();
+
+          symbol = SYM_RSHIFT;
         } else
-          symbol = SYM_GT;
+            symbol = SYM_GT;
       } else if (character == CHAR_DOT) {
         get_character();
 
@@ -4304,6 +4318,24 @@ uint64_t is_comparison() {
   else if (symbol == SYM_LEQ)
     return 1;
   else if (symbol == SYM_GEQ)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_shift() {
+  if(symbol == SYM_LSHIFT)
+    return 1;
+  else if(symbol == SYM_RSHIFT)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_arithmetic() {
+  if(is_plus_or_minus())
+    return 1;
+  else if(is_shift())
     return 1;
   else
     return 0;
@@ -5038,7 +5070,7 @@ uint64_t compile_arithmetic() {
 
   // assert: allocated_temporaries == n + 1
 
-  while (is_plus_or_minus()) {
+  while (is_arithmetic()) {
     operator_symbol = symbol;
 
     get_symbol();
@@ -5088,6 +5120,10 @@ uint64_t compile_arithmetic() {
       else
         // UINT64_T - UINT64_T
         emit_sub(previous_temporary(), previous_temporary(), current_temporary());
+    } else if (operator_symbol == SYM_LSHIFT) {
+      // todo [bitwise-shift-execution]
+    } else if (operator_symbol == SYM_RSHIFT) {
+      // todo [bitwise-shift-execution]
     }
 
     tfree(1);
