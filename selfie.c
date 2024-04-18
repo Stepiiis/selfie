@@ -987,7 +987,7 @@ void     decode_u_format();
 uint64_t OP_LOAD   = 3;   // 0000011, I format (LD,LW)
 uint64_t OP_IMM    = 19;  // 0010011, I format (ADDI, NOP)
 uint64_t OP_STORE  = 35;  // 0100011, S format (SD,SW)
-uint64_t OP_OP     = 51;  // 0110011, R format (ADD, SUB, MUL, DIVU, REMU, SLTU)
+uint64_t OP_OP     = 51;  // 0110011, R format (ADD, SUB, MUL, DIVU, REMU, SLTU, SLL, SRL)
 uint64_t OP_LUI    = 55;  // 0110111, U format (LUI)
 uint64_t OP_BRANCH = 99;  // 1100011, B format (BEQ)
 uint64_t OP_JALR   = 103; // 1100111, I format (JALR)
@@ -1010,6 +1010,8 @@ uint64_t F3_SW    = 2; // 010
 uint64_t F3_BEQ   = 0; // 000
 uint64_t F3_JALR  = 0; // 000
 uint64_t F3_ECALL = 0; // 000
+uint64_t F3_SLL   = 1; // 001
+uint64_t F3_SRL   = 5; // 101
 
 // f7-codes
 uint64_t F7_ADD  = 0;  // 0000000
@@ -1018,6 +1020,8 @@ uint64_t F7_SUB  = 32; // 0100000
 uint64_t F7_DIVU = 1;  // 0000001
 uint64_t F7_REMU = 1;  // 0000001
 uint64_t F7_SLTU = 0;  // 0000000
+uint64_t F7_SLL  = 0;  // 0000000
+uint64_t F7_SRL  = 0;  // 0000000
 
 // f12-codes (immediates)
 uint64_t F12_ECALL = 0; // 000000000000
@@ -1072,6 +1076,8 @@ void emit_mul(uint64_t rd, uint64_t rs1, uint64_t rs2);
 void emit_divu(uint64_t rd, uint64_t rs1, uint64_t rs2);
 void emit_remu(uint64_t rd, uint64_t rs1, uint64_t rs2);
 void emit_sltu(uint64_t rd, uint64_t rs1, uint64_t rs2);
+void emit_sll(uint64_t rd, uint64_t rs1, uint64_t rs2);
+void emit_srl(uint64_t rd, uint64_t rs1, uint64_t rs2);
 
 void emit_load(uint64_t rd, uint64_t rs1, uint64_t immediate);
 void emit_store(uint64_t rs1, uint64_t immediate, uint64_t rs2);
@@ -1200,6 +1206,8 @@ uint64_t ic_beq   = 0;
 uint64_t ic_jal   = 0;
 uint64_t ic_jalr  = 0;
 uint64_t ic_ecall = 0;
+uint64_t ic_sll   = 0;
+uint64_t ic_srl   = 0;
 
 // data counters
 
@@ -1251,6 +1259,8 @@ void reset_binary_counters() {
   ic_jal   = 0;
   ic_jalr  = 0;
   ic_ecall = 0;
+  ic_sll   = 0;
+  ic_srl   = 0;
 
   dc_global_variable = 0;
   dc_string          = 0;
@@ -1571,6 +1581,8 @@ void do_sub();
 void do_mul();
 void do_divu();
 void do_remu();
+void do_sll();
+void do_srl();
 
 void do_sltu();
 
@@ -1629,6 +1641,8 @@ uint64_t BEQ   = 11;
 uint64_t JAL   = 12;
 uint64_t JALR  = 13;
 uint64_t ECALL = 14;
+uint64_t SLL   = 15;
+uint64_t SRL   = 16;
 
 uint64_t* MNEMONICS; // assembly mnemonics of instructions
 
@@ -1670,6 +1684,8 @@ void init_disassembler() {
   *(MNEMONICS + DIVU)  = (uint64_t) "divu";
   *(MNEMONICS + REMU)  = (uint64_t) "remu";
   *(MNEMONICS + SLTU)  = (uint64_t) "sltu";
+  *(MNEMONICS + SLL)   = (uint64_t) "sll";
+  *(MNEMONICS + SRL)   = (uint64_t) "srl";
 
   reset_disassembler();
 
@@ -1823,6 +1839,8 @@ uint64_t nopc_store = 0;
 uint64_t nopc_beq   = 0;
 uint64_t nopc_jal   = 0;
 uint64_t nopc_jalr  = 0;
+uint64_t nopc_sll   = 0;
+uint64_t nopc_srl   = 0;
 
 // source profile
 
@@ -1905,6 +1923,8 @@ void reset_nop_counters() {
   nopc_beq   = 0;
   nopc_jal   = 0;
   nopc_jalr  = 0;
+  nopc_sll   = 0;
+  nopc_srl   = 0;
 }
 
 void reset_source_profile() {
@@ -5121,9 +5141,15 @@ uint64_t compile_arithmetic() {
         // UINT64_T - UINT64_T
         emit_sub(previous_temporary(), previous_temporary(), current_temporary());
     } else if (operator_symbol == SYM_LSHIFT) {
-      // todo [bitwise-shift-execution]
+      if(rtype == UINT64STAR_T)
+        syntax_error_message("value << (uint64_t*) is undefined");
+
+      emit_sll(previous_temporary(), previous_temporary(), current_temporary());
     } else if (operator_symbol == SYM_RSHIFT) {
-      // todo [bitwise-shift-execution]
+      if(rtype == UINT64STAR_T)
+        syntax_error_message("value << (uint64_t*) is undefined");
+
+      emit_srl(previous_temporary(), previous_temporary(), current_temporary());
     }
 
     tfree(1);
@@ -6922,11 +6948,11 @@ void decode_u_format() {
 // -----------------------------------------------------------------
 
 uint64_t get_total_number_of_instructions() {
-  return ic_lui + ic_addi + ic_add + ic_sub + ic_mul + ic_divu + ic_remu + ic_sltu + ic_load + ic_store + ic_beq + ic_jal + ic_jalr + ic_ecall;
+  return ic_lui + ic_addi + ic_add + ic_sub + ic_mul + ic_divu + ic_remu + ic_sltu + ic_load + ic_store + ic_beq + ic_jal + ic_jalr + ic_ecall + ic_sll + ic_srl;
 }
 
 uint64_t get_total_number_of_nops() {
-  return nopc_lui + nopc_addi + nopc_add + nopc_sub + nopc_mul + nopc_divu + nopc_remu + nopc_sltu + nopc_load + nopc_store + nopc_beq + nopc_jal + nopc_jalr;
+  return nopc_lui + nopc_addi + nopc_add + nopc_sub + nopc_mul + nopc_divu + nopc_remu + nopc_sltu + nopc_load + nopc_store + nopc_beq + nopc_jal + nopc_jalr + nopc_sll + nopc_srl;
 }
 
 void print_instruction_counter(uint64_t counter, uint64_t ins) {
@@ -7138,6 +7164,18 @@ void emit_sltu(uint64_t rd, uint64_t rs1, uint64_t rs2) {
   emit_instruction(encode_r_format(F7_SLTU, rs2, rs1, F3_SLTU, rd, OP_OP));
 
   ic_sltu = ic_sltu + 1;
+}
+
+void emit_sll(uint64_t rd, uint64_t rs1, uint64_t rs2){
+  emit_instruction(encode_r_format(F7_SLL, rs2, rs1, F3_SLL, rd, OP_OP));
+
+  ic_sll = ic_sll + 1;
+}
+
+void emit_srl(uint64_t rd, uint64_t rs1, uint64_t rs2){
+  emit_instruction(encode_r_format(F7_SRL, rs2, rs1, F3_SRL, rd, OP_OP));
+
+  ic_srl = ic_srl + 1;
 }
 
 void emit_load(uint64_t rd, uint64_t rs1, uint64_t immediate) {
