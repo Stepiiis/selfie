@@ -1674,7 +1674,7 @@ void reset_disassembler() {
 }
 
 void init_disassembler() {
-  MNEMONICS = smalloc((ECALL + 1) * sizeof(uint64_t*));
+  MNEMONICS = smalloc((SRL + 1) * sizeof(uint64_t*));
 
   *(MNEMONICS + LUI)   = (uint64_t) "lui";
   *(MNEMONICS + ADDI)  = (uint64_t) "addi";
