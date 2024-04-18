@@ -7002,8 +7002,13 @@ void print_instruction_counters() {
   print_instruction_counter_with_nops(ic_divu, nopc_divu, DIVU);
   printf(", ");
   print_instruction_counter_with_nops(ic_remu, nopc_remu, REMU);
+  printf(", ");
+  print_instruction_counter_with_nops(ic_sll, nopc_sll, SLL);
   println();
 
+  printf("%s: compute: ", selfie_name);
+  print_instruction_counter_with_nops(ic_srl, nopc_srl, SRL);
+  println();
   printf("%s: compare: ", selfie_name);
   print_instruction_counter_with_nops(ic_sltu, nopc_sltu, SLTU);
   println();
