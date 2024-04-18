@@ -53,9 +53,11 @@ statement  = assignment ";" | if | while | call ";" | return ";" .
 
 assignment = ( [ "*" ] identifier | "*" "(" expression ")" ) "=" expression .
 
-expression = arithmetic [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) arithmetic ] .
+expression = binary_arithmetic [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) binary_arithmetic ] .
 
-arithmetic = term { ( "+" | "-" | "<<" | ">>" ) term } .
+binary_arithmetic = arithmetic { ( "<<" | ">>" ) arithmetic } .
+
+arithmetic = term { ( "+" | "-" ) term } .
 
 term       = factor { ( "*" | "/" | "%" ) factor } .
 
