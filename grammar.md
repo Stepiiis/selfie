@@ -53,15 +53,23 @@ statement  = assignment ";" | if | while | call ";" | return ";" .
 
 assignment = ( [ "*" ] identifier | "*" "(" expression ")" ) "=" expression .
 
-expression = binary_arithmetic [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) binary_arithmetic ] .
+expression = bitwise_or_expression .
 
-binary_arithmetic = arithmetic { ( "<<" | ">>" ) arithmetic } .
+bitwise_or_expression = bitwise_and_expression [ ( "|" ) bitwise_and_expression ] .
+
+bitwise_and_expression = equality_expression [ ( "&" ) equality_expression ] .
+
+equality_expression = relation_expression [ ( "==" | "!=" )  relation_expression ] .
+
+relation_expression =  shift_arithmetic [ ( "<" | ">" | "<=" | ">=" ) shift_arithmetic] .
+
+shift_arithmetic = arithmetic { ( "<<" | ">>" ) arithmetic } .
 
 arithmetic = term { ( "+" | "-" ) term } .
 
 term       = factor { ( "*" | "/" | "%" ) factor } .
 
-factor     = [ cast ] [ "-" ] [ "*" ]
+factor     = [ cast ] [ "-" ] [ "*" ] [ "~" ]
              ( "sizeof" "(" type ")" | literal | identifier | call | "(" expression ")" ) .
 
 literal    = value | string | "0x" integer.
