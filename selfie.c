@@ -460,11 +460,14 @@ uint64_t SYM_LEQ          = 26; // <=
 uint64_t SYM_GT           = 27; // >
 uint64_t SYM_GEQ          = 28; // >=
 uint64_t SYM_ELLIPSIS     = 29; // ...
-uint64_t SYM_LSHIFT       = 30; // <<
-uint64_t SYM_RSHIFT       = 31; // >>
-uint64_t SYM_AND          = 32; // &
-uint64_t SYM_OR           = 33; // |
-uint64_t SYM_NOT          = 34; // ~
+uint64_t SYM_LSHIFT       = 34; // <<
+uint64_t SYM_RSHIFT       = 35; // >>
+uint64_t SYM_BAND         = 36; // &
+uint64_t SYM_BOR          = 37; // |
+uint64_t SYM_BNOT         = 38; // ~
+uint64_t SYM_LAND         = 39; // ||
+uint64_t SYM_LOR          = 40; // &&
+uint64_t SYM_LNOT         = 41; // !
 
 // symbols for bootstrapping
 
@@ -509,7 +512,7 @@ uint64_t source_fd   = 0; // file descriptor of open source file
 // ------------------------- INITIALIZATION ------------------------
 
 void init_scanner () {
-  SYMBOLS = smalloc((SYM_CONST + 1) * sizeof(uint64_t*));
+  SYMBOLS = smalloc((SYM_LNOT + 1) * sizeof(uint64_t*));
 
   *(SYMBOLS + SYM_INTEGER)      = (uint64_t) "integer";
   *(SYMBOLS + SYM_CHARACTER)    = (uint64_t) "character";
@@ -543,6 +546,13 @@ void init_scanner () {
   *(SYMBOLS + SYM_ELLIPSIS)     = (uint64_t) "...";
   *(SYMBOLS + SYM_LSHIFT)       = (uint64_t) "<<";
   *(SYMBOLS + SYM_RSHIFT)       = (uint64_t) ">>";
+  *(SYMBOLS + SYM_RSHIFT)       = (uint64_t) ">>";
+  *(SYMBOLS + SYM_BAND)         = (uint64_t) "&";
+  *(SYMBOLS + SYM_BOR)          = (uint64_t) "|";
+  *(SYMBOLS + SYM_BNOT)         = (uint64_t) "~";
+  *(SYMBOLS + SYM_LAND)         = (uint64_t) "&&";
+  *(SYMBOLS + SYM_LOR)          = (uint64_t) "||";
+  *(SYMBOLS + SYM_LNOT)         = (uint64_t) "!";
 
   *(SYMBOLS + SYM_INT)      = (uint64_t) "int";
   *(SYMBOLS + SYM_CHAR)     = (uint64_t) "char";
@@ -678,8 +688,10 @@ uint64_t is_type();
 uint64_t is_value();
 uint64_t is_expression();
 uint64_t is_comparison();
-uint64_t is_and();
-uint64_t is_or();
+uint64_t is_band();
+uint64_t is_bor();
+uint64_t is_land();
+uint64_t is_lor();
 uint64_t is_shift();
 uint64_t is_plus_or_minus();
 uint64_t is_mult_or_div_or_rem();
@@ -728,6 +740,8 @@ uint64_t  load_variable(char* variable);
 void compile_assignment(char* variable);
 
 uint64_t compile_expression();              // returns type
+uint64_t compile_logical_or_expression();   // returns type
+uint64_t compile_logical_and_expression();   // returns type
 uint64_t compile_bitwise_or_expression();   // returns type
 uint64_t compile_bitwise_and_expression();  // returns type
 uint64_t compile_equality_expression();     // returns type
@@ -4069,12 +4083,12 @@ void get_symbol() {
       } else if (character == CHAR_EXCLAMATION) {
         get_character();
 
-        if (character == CHAR_EQUAL)
+        if (character == CHAR_EQUAL) {
           get_character();
-        else
-          syntax_error_expected_character(CHAR_EQUAL);
 
-        symbol = SYM_NOTEQ;
+          symbol = SYM_NOTEQ;
+        } else
+          symbol = SYM_LNOT;
       } else if (character == CHAR_LT) {
         get_character();
 
@@ -4087,7 +4101,7 @@ void get_symbol() {
 
           symbol = SYM_LSHIFT;
         } else
-            symbol = SYM_LT;
+          symbol = SYM_LT;
       } else if (character == CHAR_GT) {
         get_character();
 
@@ -4118,15 +4132,25 @@ void get_symbol() {
       } else if (character == CHAR_AMPERSAND) {
         get_character();
 
-        symbol = SYM_AND;
+        if(character == CHAR_AMPERSAND){
+          get_character();
+
+          symbol = SYM_LAND;
+        } else
+          symbol = SYM_BAND;
       } else if (character == CHAR_PIPE) {
         get_character();
 
-        symbol = SYM_OR;
+        if(character == CHAR_PIPE){
+          get_character();
+
+          symbol = SYM_LOR;
+        } else
+          symbol = SYM_BOR;
       } else if (character == CHAR_TILDE) {
         get_character();
 
-        symbol = SYM_NOT;
+        symbol = SYM_BNOT;
       } else {
         print_line_number("syntax error", line_number);
         printf("found unknown character ");
@@ -4395,15 +4419,29 @@ uint64_t is_comparison() {
     return 0;
 }
 
-uint64_t is_and(){
-  if (symbol == SYM_AND)
+uint64_t is_lor(){
+  if (symbol == SYM_LOR)
     return 1;
   else
     return 0;
 }
 
-uint64_t is_or(){
-  if (symbol == SYM_OR)
+uint64_t is_land(){
+  if (symbol == SYM_LAND)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_band(){
+  if (symbol == SYM_BAND)
+    return 1;
+  else
+    return 0;
+}
+
+uint64_t is_bor(){
+  if (symbol == SYM_BOR)
     return 1;
   else
     return 0;
@@ -4445,7 +4483,9 @@ uint64_t is_factor() {
     return 1;
   else if (symbol == SYM_ASTERISK)
     return 1;
-  else if (symbol == SYM_NOT)
+  else if (symbol == SYM_BNOT )
+    return 1;
+  else if (symbol == SYM_LNOT )
     return 1;
   else if (symbol == SYM_SIZEOF)
     return 1;
@@ -5060,9 +5100,52 @@ void compile_assignment(char* variable) {
 }
 
 uint64_t compile_expression() {
-  return compile_bitwise_or_expression();
+  return compile_logical_or_expression();
 }
 
+uint64_t compile_logical_or_expression() {
+  uint64_t ltype;
+
+  // assert: n = allocated_temporaries
+
+  ltype = compile_logical_and_expression();
+
+  while(is_lor()){
+    get_symbol();
+
+    compile_logical_and_expression();
+
+    emit_sltu(previous_temporary(), REG_ZR, previous_temporary());
+    emit_sltu(current_temporary(), REG_ZR, current_temporary());
+    emit_or(previous_temporary(), previous_temporary(), current_temporary());
+
+    tfree(1);
+  }
+
+  return ltype;
+}
+
+uint64_t compile_logical_and_expression() {
+  uint64_t ltype;
+
+  // assert: n = allocated_temporaries
+
+  ltype = compile_bitwise_or_expression();
+
+  while(is_land()){
+    get_symbol();
+
+    compile_bitwise_or_expression();
+
+    emit_sltu(previous_temporary(), REG_ZR, previous_temporary());
+    emit_sltu(current_temporary(), REG_ZR, current_temporary());
+    emit_and(previous_temporary(), previous_temporary(), current_temporary());
+
+    tfree(1);
+  }
+
+  return ltype;
+}
 
 uint64_t compile_bitwise_or_expression() {
   uint64_t ltype;
@@ -5073,14 +5156,14 @@ uint64_t compile_bitwise_or_expression() {
 
   ltype = compile_bitwise_and_expression();
 
-  while(is_or()){
+  while(is_bor()){
     operator_symbol = symbol;
 
     get_symbol();
 
     rtype = compile_bitwise_and_expression();
 
-    if (operator_symbol == SYM_OR) {
+    if (operator_symbol == SYM_BOR) {
       if(rtype == UINT64STAR_T)
         syntax_error_message("value | (uint64_t*) is undefined");
 
@@ -5103,14 +5186,14 @@ uint64_t compile_bitwise_and_expression() {
 
   ltype = compile_equality_expression();
 
-  while(is_and()){
+  while(is_band()){
     operator_symbol = symbol;
 
     get_symbol();
 
     rtype = compile_equality_expression();
 
-    if (operator_symbol == SYM_AND) {
+    if (operator_symbol == SYM_BAND) {
       if(rtype == UINT64STAR_T)
         syntax_error_message("value & (uint64_t*) is undefined");
 
@@ -5356,6 +5439,7 @@ uint64_t compile_factor() {
   uint64_t negative;
   uint64_t dereference;
   uint64_t binary_not;
+  uint64_t logical_not;
 
   char* variable_or_procedure;
 
@@ -5409,12 +5493,19 @@ uint64_t compile_factor() {
   } else
     dereference = 0;
 
-  if (symbol == SYM_NOT) {
+  if (symbol == SYM_BNOT) {
     binary_not = 1;
 
     get_symbol();
   } else
     binary_not = 0;
+
+  if (symbol == SYM_LNOT) {
+    logical_not = 1;
+
+    get_symbol();
+  } else
+    logical_not = 0;
 
   if (symbol == SYM_SIZEOF) {
     // "sizeof" "(" type ")"
@@ -5502,6 +5593,16 @@ uint64_t compile_factor() {
       type = UINT64_T;
     }
     emit_xori(current_temporary(), current_temporary(), -1);
+  }
+
+  if (logical_not) {
+    if (type != UINT64_T) {
+      type_warning(UINT64_T, type);
+
+      type = UINT64_T;
+    }
+    emit_sltu(current_temporary(), 0, current_temporary());
+    emit_xori(current_temporary(), current_temporary(), 1);
   }
 
   // assert: allocated_temporaries == n + 1
