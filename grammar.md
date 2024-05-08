@@ -49,7 +49,7 @@ cast       = "(" type ")" .
 
 value      = integer | character .
 
-statement  = assignment ";" | if | while | for | call ";" | return ";" .
+statement  = assignment | assignment ";" | if | while | for | call ";" | return ";" .
 
 assignment = ( [ "*" ] identifier | "*" "(" expression ")" ) "=" expression .
 
@@ -86,7 +86,7 @@ if         = "if" "(" expression ")"
 while      = "while" "(" expression ")"
                ( statement | "{" { statement } "}" ) .
 
-for        = "for" "(" expression ";" expression ";" expression ")" 
+for        = "for" "(" statement ";" expression ";" statement ")" 
                ( statement | "{" { statement } "}" ) .
 
 procedure  = ( type | "void" ) identifier "(" [ variable { "," variable } [ "," "..." ] ] ")"
