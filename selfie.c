@@ -5911,14 +5911,12 @@ void compile_for() {
   uint64_t branch_forward_to_statement;
   uint64_t jump_back_to_condition;
   uint64_t jump_back_to_updater;
-  uint64_t statement_beginning;
 
   // assert: allocated_temporaries == 0
   jump_back_to_condition      = 0;
   jump_back_to_updater        = 0;
   branch_forward_to_end       = 0;
   branch_forward_to_statement = 0;
-  statement_beginning         = 0;
 
   if (symbol == SYM_FOR) {
     // "for" "(" initializer_expression ";" conditional_expression ";" updater_expression ")"
@@ -5927,17 +5925,16 @@ void compile_for() {
     if (symbol == SYM_LPARENTHESIS) {
       get_symbol();
 
-      // we can ommit initializer
+      // initializer statement, can be omitted
       if(symbol != SYM_SEMICOLON) {
-
-        // initializer statement
         compile_statement();
+
       } else
         // compile_statement reads the semicolon, we have to read it manually
         get_symbol();
 
+      // conditional expression, can be also omitted
       if(symbol != SYM_SEMICOLON) {
-        // conditional start
         jump_back_to_condition = code_size;
         // conditional expression
         compile_expression();
@@ -5963,21 +5960,21 @@ void compile_for() {
       // address of the body is still unknown, so we use 0 for now
       emit_jal(REG_ZR, 0);
 
-      //updater start
+      // updater statement, can be omitted
+      jump_back_to_updater = code_size;
       if (symbol != SYM_RPARENTHESIS) {
-        jump_back_to_updater = code_size;
-        // updater expression
         compile_statement_in_context(0);
-
-        if (jump_back_to_condition != 0)
-          // jump to beginning of conditional expression
-          emit_jal(REG_ZR, jump_back_to_condition - code_size);
-        else
-          // fixme this might be a little lazy, and creates two jumps instead of one
-          emit_jal(REG_ZR, branch_forward_to_statement - code_size);
       }
+
+      // check if conditional was initialized
+      if (jump_back_to_condition != 0)
+        // jump to beginning of conditional expression
+        emit_jal(REG_ZR, jump_back_to_condition - code_size);
+      else
+        // fixme this might be a little lazy, and creates two jumps instead of one
+        emit_jal(REG_ZR, branch_forward_to_statement - code_size);
+
       get_symbol();
-      statement_beginning = code_size;
 
       // fixing up offset of JAL of updater expression
       fixup_JFormat(branch_forward_to_statement, code_size);
@@ -6000,15 +5997,10 @@ void compile_for() {
   } else
     syntax_error_expected_symbol(SYM_FOR);
 
-  if(jump_back_to_updater != 0)
-    // we use JAL for the unconditional jump back to the loop updater because:
-    // 1. the RISC-V doc recommends to do so to not disturb branch prediction
-    // 2. GCC also uses JAL for the unconditional back jump of a while loop
-    emit_jal(REG_ZR, jump_back_to_updater - code_size);
-  else if(statement_beginning != 0)
-    emit_jal(REG_ZR, statement_beginning - code_size);
-  else
-    syntax_error_message("missing for loop body");
+  // we use JAL for the unconditional jump back to the updater statement because:
+  // 1. the RISC-V doc recommends to do so to not disturb branch prediction
+  // 2. GCC also uses JAL for the unconditional back jump of a while loop
+  emit_jal(REG_ZR, jump_back_to_updater - code_size);
 
   if (branch_forward_to_end != 0)
     // first instruction after loop body will be generated here
