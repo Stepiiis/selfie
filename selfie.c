@@ -468,6 +468,7 @@ uint64_t SYM_BNOT         = 38; // ~
 uint64_t SYM_LAND         = 39; // ||
 uint64_t SYM_LOR          = 40; // &&
 uint64_t SYM_LNOT         = 41; // !
+uint64_t SYM_FOR          = 42; // for
 
 // symbols for bootstrapping
 
@@ -512,7 +513,7 @@ uint64_t source_fd   = 0; // file descriptor of open source file
 // ------------------------- INITIALIZATION ------------------------
 
 void init_scanner () {
-  SYMBOLS = smalloc((SYM_LNOT + 1) * sizeof(uint64_t*));
+  SYMBOLS = smalloc((SYM_FOR + 1) * sizeof(uint64_t*));
 
   *(SYMBOLS + SYM_INTEGER)      = (uint64_t) "integer";
   *(SYMBOLS + SYM_CHARACTER)    = (uint64_t) "character";
@@ -553,6 +554,7 @@ void init_scanner () {
   *(SYMBOLS + SYM_LAND)         = (uint64_t) "&&";
   *(SYMBOLS + SYM_LOR)          = (uint64_t) "||";
   *(SYMBOLS + SYM_LNOT)         = (uint64_t) "!";
+  *(SYMBOLS + SYM_FOR)          = (uint64_t) "for";
 
   *(SYMBOLS + SYM_INT)      = (uint64_t) "int";
   *(SYMBOLS + SYM_CHAR)     = (uint64_t) "char";
@@ -728,6 +730,7 @@ uint64_t compile_cast(uint64_t type); // returns cast type
 uint64_t compile_value(); // returns value
 
 void compile_statement();
+void compile_statement_in_context(uint64_t expect_end_semicolon);
 
 uint64_t load_upper_value(uint64_t reg, uint64_t value);
 uint64_t load_upper_address(uint64_t* entry);
@@ -760,6 +763,7 @@ uint64_t compile_literal(); // returns type
 
 void compile_if();
 void compile_while();
+void compile_for();
 
 char*    bootstrap_non_0_boot_level_procedures(char* procedure);
 uint64_t is_boot_level_0_only_procedure(char* procedure);
@@ -794,6 +798,7 @@ uint64_t number_of_string_literals  = 0;
 
 uint64_t number_of_assignments = 0;
 uint64_t number_of_while       = 0;
+uint64_t number_of_for         = 0;
 uint64_t number_of_if          = 0;
 uint64_t number_of_calls       = 0;
 uint64_t number_of_return      = 0;
@@ -807,6 +812,7 @@ void reset_parser() {
 
   number_of_assignments = 0;
   number_of_while       = 0;
+  number_of_for         = 0;
   number_of_if          = 0;
   number_of_calls       = 0;
   number_of_return      = 0;
@@ -3827,6 +3833,8 @@ uint64_t identifier_or_keyword() {
     return SYM_RETURN;
   else if (identifier_string_match(SYM_WHILE))
     return SYM_WHILE;
+  else if (identifier_string_match(SYM_FOR))
+    return SYM_FOR;
   else if (identifier_string_match(SYM_SIZEOF))
     return SYM_SIZEOF;
   else if (identifier_string_match(SYM_INT))
@@ -4543,6 +4551,8 @@ uint64_t is_not_statement() {
     return 0;
   else if (symbol == SYM_WHILE)
     return 0;
+  else if (symbol == SYM_FOR)
+    return 0;
   else if (symbol == SYM_RETURN)
     return 0;
   else if (symbol == SYM_EOF)
@@ -4838,7 +4848,13 @@ uint64_t compile_value() {
   }
 }
 
-void compile_statement() {
+void compile_statement(){
+  compile_statement_in_context(1);
+}
+
+
+
+void compile_statement_in_context(uint64_t expect_end_semicolon) {
   char* variable_or_procedure;
 
   // assert: allocated_temporaries == 0
@@ -4856,8 +4872,8 @@ void compile_statement() {
   if (symbol == SYM_ASTERISK) {
     // assignment: "*" ...
     compile_assignment((char*) 0);
-
-    get_expected_symbol(SYM_SEMICOLON);
+    if(expect_end_semicolon)
+      get_expected_symbol(SYM_SEMICOLON);
   } else if (symbol == SYM_IDENTIFIER) {
     variable_or_procedure = identifier;
 
@@ -4869,16 +4885,19 @@ void compile_statement() {
     else
       // procedure call: identifier "(" ... ")"
       compile_call(variable_or_procedure);
-
-    get_expected_symbol(SYM_SEMICOLON);
+    if(expect_end_semicolon)
+      get_expected_symbol(SYM_SEMICOLON);
   } else if (symbol == SYM_IF)
     compile_if();
   else if (symbol == SYM_WHILE)
     compile_while();
-  else if (symbol == SYM_RETURN) {
+  else if (symbol == SYM_FOR)
+    compile_for();
+  else if (symbol == SYM_RETURN && expect_end_semicolon) {
     compile_return();
-
     get_expected_symbol(SYM_SEMICOLON);
+  } else if (symbol == SYM_RETURN && !expect_end_semicolon) {
+    syntax_error_expected_symbol(SYM_IDENTIFIER);
   }
 
   // assert: allocated_temporaries == 0
@@ -5887,6 +5906,113 @@ void compile_while() {
   number_of_while = number_of_while + 1;
 }
 
+void compile_for() {
+  uint64_t branch_forward_to_end;
+  uint64_t branch_forward_to_statement;
+  uint64_t jump_back_to_condition;
+  uint64_t jump_back_to_updater;
+
+  // assert: allocated_temporaries == 0
+  jump_back_to_condition      = 0;
+  jump_back_to_updater        = 0;
+  branch_forward_to_end       = 0;
+  branch_forward_to_statement = 0;
+
+  if (symbol == SYM_FOR) {
+    // "for" "(" initializer_expression ";" conditional_expression ";" updater_expression ")"
+    get_symbol();
+
+    if (symbol == SYM_LPARENTHESIS) {
+      get_symbol();
+
+      // initializer statement, can be omitted
+      if(symbol != SYM_SEMICOLON) {
+        compile_statement();
+
+      } else
+        // compile_statement reads the semicolon, we have to read it manually
+        get_symbol();
+
+      // conditional expression, can be also omitted
+      if(symbol != SYM_SEMICOLON) {
+        jump_back_to_condition = code_size;
+        // conditional expression
+        compile_expression();
+
+        // if the "for" condition expression evaluates to false,
+        // we skip the "for" body by branching to the end
+        branch_forward_to_end = code_size;
+
+        // the target address is still unknown, using 0 for now
+        emit_beq(current_temporary(), REG_ZR, 0);
+
+        tfree(1);
+      }
+
+      // required semicolon between condition and updater
+      get_required_symbol(SYM_SEMICOLON);
+
+
+      // if the "for" condition expression evaluates to true,
+      // we jump to the body
+      branch_forward_to_statement = code_size;
+
+      // address of the body is still unknown, so we use 0 for now
+      emit_jal(REG_ZR, 0);
+
+      // updater statement, can be omitted
+      jump_back_to_updater = code_size;
+      if (symbol != SYM_RPARENTHESIS) {
+        compile_statement_in_context(0);
+      }
+
+      // check if conditional was initialized
+      if (jump_back_to_condition != 0)
+        // jump to beginning of conditional expression
+        emit_jal(REG_ZR, jump_back_to_condition - code_size);
+      else
+        // fixme this might be a little lazy, and creates two jumps instead of one
+        emit_jal(REG_ZR, branch_forward_to_statement - code_size);
+
+      get_symbol();
+
+      // fixing up offset of JAL of updater expression
+      fixup_JFormat(branch_forward_to_statement, code_size);
+
+      if (symbol == SYM_LBRACE) {
+        // zero or more statements: "{" { statement } "}"
+        get_symbol();
+
+        while (is_neither_rbrace_nor_eof())
+          // assert: allocated_temporaries == 0
+          compile_statement();
+
+        get_required_symbol(SYM_RBRACE);
+      } else
+        // only one statement without "{" "}"
+        compile_statement();
+
+    } else
+      syntax_error_expected_symbol(SYM_LPARENTHESIS);
+  } else
+    syntax_error_expected_symbol(SYM_FOR);
+
+  // we use JAL for the unconditional jump back to the updater statement because:
+  // 1. the RISC-V doc recommends to do so to not disturb branch prediction
+  // 2. GCC also uses JAL for the unconditional back jump of a while loop
+  emit_jal(REG_ZR, jump_back_to_updater - code_size);
+
+  if (branch_forward_to_end != 0)
+    // first instruction after loop body will be generated here
+    // now we have the address for the conditional branch from above
+    fixup_BFormat(branch_forward_to_end);
+
+  // assert: allocated_temporaries == 0
+
+  number_of_for = number_of_for + 1;
+}
+
+
 char* bootstrap_non_0_boot_level_procedures(char* procedure) {
   // define non-0-boot-level procedures without prefix in name
   // copy names to obtain unique hash for global symbol table
@@ -6762,8 +6888,9 @@ void selfie_compile() {
         number_of_procedures,
         number_of_string_literals);
 
-      printf("%s: %lu assignments, %lu while, %lu if, %lu calls, %lu return\n", selfie_name,
+      printf("%s: %lu assignments, %lu while, %lu for, %lu if, %lu calls, %lu return\n", selfie_name,
         number_of_assignments,
+        number_of_for,
         number_of_while,
         number_of_if,
         number_of_calls,
