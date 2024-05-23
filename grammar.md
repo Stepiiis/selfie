@@ -37,7 +37,9 @@ letter = "a" | ... | "z" | "A" | ... | "Z" .
 C\* Grammar:
 
 ```
-cstar      = { variable [ initialize ] ";" | procedure } .
+cstar      = { variable_init |  procedure } .
+
+variable_init = variable ( [ initialize ] | "[" int_literal "]" ) ";" .
 
 variable   = type identifier .
 
@@ -51,7 +53,7 @@ value      = integer | character .
 
 statement  = assignment | assignment ";" | if | while | for | call ";" | return ";" .
 
-assignment = ( [ "*" ] identifier | "*" "(" expression ")" ) "=" expression .
+assignment = ( [ "*" ] identifier | "*" "(" expression ")" | identifier "[" expression "]" ) "=" expression .
 
 expression = logical_or_expression .
 
@@ -74,9 +76,11 @@ arithmetic = term { ( "+" | "-" ) term } .
 term       = factor { ( "*" | "/" | "%" ) factor } .
 
 factor     = [ cast ] [ "-" ] [ "*" ] [ "~" ] [ "!" ]
-             ( "sizeof" "(" type ")" | literal | identifier | call | "(" expression ")" ) .
+             ( "sizeof" "(" type ")" | literal | identifier [ "[" expression "]" ] | call | "(" expression ")" ) .
 
-literal    = value | string | "0x" integer.
+int_literal = ["0x"] integer .
+
+literal    = value | string | int_literal .
 
 if         = "if" "(" expression ")"
                ( statement | "{" { statement } "}" )
