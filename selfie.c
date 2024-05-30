@@ -469,6 +469,7 @@ uint64_t SYM_LAND         = 39; // ||
 uint64_t SYM_LOR          = 40; // &&
 uint64_t SYM_LNOT         = 41; // !
 uint64_t SYM_FOR          = 42; // for
+uint64_t SYM_STRUCT       = 43; // struct
 
 // symbols for bootstrapping
 
@@ -513,18 +514,20 @@ uint64_t source_fd   = 0; // file descriptor of open source file
 // ------------------------- INITIALIZATION ------------------------
 
 void init_scanner () {
-  SYMBOLS = smalloc((SYM_FOR + 1) * sizeof(uint64_t*));
+  SYMBOLS = smalloc((SYM_STRUCT + 1) * sizeof(uint64_t*));
 
   *(SYMBOLS + SYM_INTEGER)      = (uint64_t) "integer";
   *(SYMBOLS + SYM_CHARACTER)    = (uint64_t) "character";
   *(SYMBOLS + SYM_STRING)       = (uint64_t) "string";
   *(SYMBOLS + SYM_IDENTIFIER)   = (uint64_t) "identifier";
   *(SYMBOLS + SYM_UINT64)       = (uint64_t) "uint64_t";
+  *(SYMBOLS + SYM_STRUCT)       = (uint64_t) "struct";
   *(SYMBOLS + SYM_IF)           = (uint64_t) "if";
   *(SYMBOLS + SYM_ELSE)         = (uint64_t) "else";
   *(SYMBOLS + SYM_VOID)         = (uint64_t) "void";
   *(SYMBOLS + SYM_RETURN)       = (uint64_t) "return";
   *(SYMBOLS + SYM_WHILE)        = (uint64_t) "while";
+  *(SYMBOLS + SYM_FOR)          = (uint64_t) "for";
   *(SYMBOLS + SYM_SIZEOF)       = (uint64_t) "sizeof";
   *(SYMBOLS + SYM_COMMA)        = (uint64_t) ",";
   *(SYMBOLS + SYM_SEMICOLON)    = (uint64_t) ";";
@@ -554,7 +557,6 @@ void init_scanner () {
   *(SYMBOLS + SYM_LAND)         = (uint64_t) "&&";
   *(SYMBOLS + SYM_LOR)          = (uint64_t) "||";
   *(SYMBOLS + SYM_LNOT)         = (uint64_t) "!";
-  *(SYMBOLS + SYM_FOR)          = (uint64_t) "for";
 
   *(SYMBOLS + SYM_INT)      = (uint64_t) "int";
   *(SYMBOLS + SYM_CHAR)     = (uint64_t) "char";
@@ -588,15 +590,16 @@ void reset_scanner() {
 // | 0 | next    | pointer to next entry
 // | 1 | string  | identifier string, big integer as string, string literal
 // | 2 | line#   | source line number
-// | 3 | class   | VARIABLE, BIGINT, STRING, PROCEDURE, MACRO
-// | 4 | type    | UINT64_T, UINT64STAR_T, VOID_T, UNDECLARED_T
-// | 5 | value   | VARIABLE: initial value, PROCEDURE: number of formal parameters
-// | 6 | address | VARIABLE, BIGINT, STRING: offset, PROCEDURE: address
+// | 3 | class   | VARIABLE, BIGINT, STRING, PROCEDURE, MACRO, STRUCT, STRUCT_MEMBER
+// | 4 | type    | UINT64_T, UINT64STAR_T, VOID_T, UNDECLARED_T, STRUCT_T
+// | 5 | value   | VARIABLE, STRUCT_MEMBER: initial value, PROCEDURE: number of formal parameters
+// | 6 | address | VARIABLE, BIGINT, STRING, STRUCT_MEMBER: offset, PROCEDURE: address
 // | 7 | scope   | REG_GP (global), REG_S0 (local)
+// | 8 | struct  | pointer to struct type
 // +---+---------+
 
 uint64_t* allocate_symbol_table_entry() {
-  return smalloc(2 * sizeof(uint64_t*) + 6 * sizeof(uint64_t));
+  return smalloc(3 * sizeof(uint64_t*) + 6 * sizeof(uint64_t));
 }
 
 uint64_t* get_next_entry(uint64_t* entry)  { return (uint64_t*) *entry; }
@@ -607,15 +610,17 @@ uint64_t  get_type(uint64_t* entry)        { return             *(entry + 4); }
 uint64_t  get_value(uint64_t* entry)       { return             *(entry + 5); }
 uint64_t  get_address(uint64_t* entry)     { return             *(entry + 6); }
 uint64_t  get_scope(uint64_t* entry)       { return             *(entry + 7); }
+uint64_t* get_struct(uint64_t* entry)      { return (uint64_t*) *(entry + 8); }
 
-void set_next_entry(uint64_t* entry, uint64_t* next) { *entry       = (uint64_t) next; }
-void set_string(uint64_t* entry, char* identifier)   { *(entry + 1) = (uint64_t) identifier; }
-void set_line_number(uint64_t* entry, uint64_t line) { *(entry + 2) = line; }
-void set_class(uint64_t* entry, uint64_t class)      { *(entry + 3) = class; }
-void set_type(uint64_t* entry, uint64_t type)        { *(entry + 4) = type; }
-void set_value(uint64_t* entry, uint64_t value)      { *(entry + 5) = value; }
-void set_address(uint64_t* entry, uint64_t address)  { *(entry + 6) = address; }
-void set_scope(uint64_t* entry, uint64_t scope)      { *(entry + 7) = scope; }
+void set_next_entry(uint64_t* entry, uint64_t* next)    { *entry       = (uint64_t) next; }
+void set_string(uint64_t* entry, char* identifier)      { *(entry + 1) = (uint64_t) identifier; }
+void set_line_number(uint64_t* entry, uint64_t line)    { *(entry + 2) = line; }
+void set_class(uint64_t* entry, uint64_t class)         { *(entry + 3) = class; }
+void set_type(uint64_t* entry, uint64_t type)           { *(entry + 4) = type; }
+void set_value(uint64_t* entry, uint64_t value)         { *(entry + 5) = value; }
+void set_address(uint64_t* entry, uint64_t address)     { *(entry + 6) = address; }
+void set_scope(uint64_t* entry, uint64_t scope)         { *(entry + 7) = scope; }
+void set_struct(uint64_t* entry, uint64_t* struct_entry) { *(entry + 8) = (uint64_t) struct_entry; }
 
 uint64_t hash(uint64_t* key);
 
@@ -633,17 +638,20 @@ uint64_t report_undefined_procedures();
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
 // classes
-uint64_t VARIABLE  = 1;
-uint64_t BIGINT    = 2;
-uint64_t STRING    = 3;
-uint64_t PROCEDURE = 4;
-uint64_t MACRO     = 5;
+uint64_t VARIABLE      = 1;
+uint64_t BIGINT        = 2;
+uint64_t STRING        = 3;
+uint64_t PROCEDURE     = 4;
+uint64_t MACRO         = 5;
+uint64_t STRUCT_MEMBER = 6;
+uint64_t STRUCT        = 7;
 
 // types
 uint64_t UINT64_T     = 1;
 uint64_t UINT64STAR_T = 2;
 uint64_t VOID_T       = 3;
 uint64_t UNDECLARED_T = 4;
+uint64_t STRUCT_T     = 5;
 
 // symbol tables
 uint64_t GLOBAL_TABLE = 1;
@@ -687,6 +695,7 @@ void     tfree(uint64_t number_of_temporaries);
 // -----------------------------------------------------------------
 
 uint64_t is_type();
+uint64_t is_type_or_struct();
 uint64_t is_value();
 uint64_t is_expression();
 uint64_t is_comparison();
@@ -703,7 +712,7 @@ uint64_t is_literal();
 uint64_t is_neither_rbrace_nor_eof();
 uint64_t is_possibly_parameter(uint64_t is_already_variadic);
 
-uint64_t is_neither_type_nor_void();
+uint64_t is_neither_type_nor_void_nor_struct();
 uint64_t is_not_statement();
 uint64_t is_not_factor();
 
@@ -767,6 +776,9 @@ void compile_for();
 
 char*    bootstrap_non_0_boot_level_procedures(char* procedure);
 uint64_t is_boot_level_0_only_procedure(char* procedure);
+
+void compile_struct(char* structure);
+void compile_struct_member(uint64_t offset);
 
 void procedure_prologue(uint64_t number_of_local_variable_bytes);
 void procedure_epilogue(uint64_t number_of_local_variable_bytes, uint64_t number_of_parameter_bytes);
@@ -3831,6 +3843,8 @@ uint64_t identifier_or_keyword() {
     return SYM_VOID;
   else if (identifier_string_match(SYM_RETURN))
     return SYM_RETURN;
+  else if (identifier_string_match(SYM_STRUCT))
+    return SYM_STRUCT;
   else if (identifier_string_match(SYM_WHILE))
     return SYM_WHILE;
   else if (identifier_string_match(SYM_FOR))
@@ -4259,6 +4273,7 @@ uint64_t* search_symbol_table(uint64_t* entry, char* string, uint64_t class) {
   return (uint64_t*) 0;
 }
 
+
 uint64_t* search_global_symbol_table(char* string, uint64_t class) {
   return search_symbol_table((uint64_t*) *(global_symbol_table + hash((uint64_t*) string)), string, class);
 }
@@ -4397,6 +4412,10 @@ uint64_t is_type() {
   return symbol == SYM_UINT64;
 }
 
+uint64_t is_type_or_struct() {
+  return is_type() || symbol == SYM_STRUCT;
+}
+
 uint64_t is_value() {
   if (symbol == SYM_INTEGER)
     return 1;
@@ -4531,8 +4550,8 @@ uint64_t is_possibly_parameter(uint64_t is_already_variadic) {
   return 0;
 }
 
-uint64_t is_neither_type_nor_void() {
-  if (is_type())
+uint64_t is_neither_type_nor_void_nor_struct() {
+  if (is_type_or_struct())
     return 0;
   else if (symbol == SYM_VOID)
     return 0;
@@ -4556,6 +4575,8 @@ uint64_t is_not_statement() {
   else if (symbol == SYM_RETURN)
     return 0;
   else if (symbol == SYM_EOF)
+    return 0;
+  else if (symbol == SYM_STRUCT)
     return 0;
   else
     return 1;
@@ -4649,7 +4670,7 @@ void compile_cstar() {
 
   while (symbol != SYM_EOF) {
     // synchronizing on strong symbols in case of syntax errors
-    while (is_neither_type_nor_void()) {
+    while (is_neither_type_nor_void_nor_struct()) {
       syntax_error_unexpected_symbol();
 
       if (symbol == SYM_EOF)
@@ -4658,7 +4679,7 @@ void compile_cstar() {
         get_symbol();
     }
 
-    if (is_type()) {
+    if (is_type_or_struct()) {
       type = compile_type();
 
       if (symbol == SYM_IDENTIFIER) {
@@ -4666,7 +4687,15 @@ void compile_cstar() {
 
         get_symbol();
 
-        if (symbol != SYM_LPARENTHESIS) {
+        if (symbol == SYM_LPARENTHESIS) {
+          // type identifier "(" ...
+          // procedure declaration or definition
+          compile_procedure(variable_or_procedure, type);
+        } else if(symbol == SYM_LBRACE && type == STRUCT_T){
+          // struct identifier "{" ...
+          // struct declaration
+          compile_struct(variable_or_procedure);
+        } else {
           // type identifier [ initialize ] ";"
           // global variable declaration or definition
           entry = compile_variable(variable_or_procedure, type, 0);
@@ -4678,10 +4707,7 @@ void compile_cstar() {
           dc_global_variable = dc_global_variable + 1;
 
           get_expected_symbol(SYM_SEMICOLON);
-        } else
-          // type identifier "(" ...
-          // procedure declaration or definition
-          compile_procedure(variable_or_procedure, type);
+        }
       } else
         syntax_error_expected_symbol(SYM_IDENTIFIER);
     } else if (symbol == SYM_VOID) {
@@ -4711,34 +4737,66 @@ void compile_cstar() {
   }
 }
 
-uint64_t* compile_variable(char* variable, uint64_t type, uint64_t offset) {
+uint64_t* compile_variable(char* var_identifier, uint64_t type, uint64_t offset) {
   uint64_t* entry;
+  uint64_t* struct_type;
+  uint64_t class;
 
-  if (variable != (char*) 0) {
+  if (var_identifier != (char*) 0) {
     // lookahead of 1: identifier already parsed into variable (type may be left-factored)
+    if (type == STRUCT_T)
+      class = STRUCT;
+    else
+      class = VARIABLE;
 
     // global variable
-    entry = search_global_symbol_table(variable, VARIABLE);
+    entry = search_global_symbol_table(var_identifier, class);
 
-    if (entry == (uint64_t*) 0) {
+    if (class == STRUCT || (class == VARIABLE && entry == (uint64_t *) 0)) {
       // allocate memory for global variable in data segment
       data_size = data_size + WORDSIZE;
 
-      entry = create_symbol_table_entry(GLOBAL_TABLE, variable,
-        line_number, VARIABLE, type, 0, -data_size);
+      if(class == STRUCT) {
+        get_expected_symbol(SYM_ASTERISK);
+        var_identifier = identifier;
+
+        get_symbol();
+      }
+
+      entry = create_symbol_table_entry(GLOBAL_TABLE, var_identifier,
+                                        line_number, VARIABLE, type, 0, -data_size);
 
       number_of_global_variables = number_of_global_variables + 1;
-    } else {
+
+    } else if (class == VARIABLE && entry != (uint64_t *) 0) {
       // global variable already declared or defined
       print_line_number("warning", line_number);
-      printf("redefinition of global variable %s ignored\n", variable);
+      printf("redefinition of global variable %s ignored\n", var_identifier);
+    } else if (class == STRUCT && entry == (uint64_t *) 0){
+      syntax_error_undeclared_identifier(var_identifier);
     }
+
   } else {
     // local variable or formal parameter
     if (symbol == SYM_IDENTIFIER) {
       // TODO: check if identifier has already been declared
+      if (type == STRUCT_T){
+        class = STRUCT;
+        var_identifier = identifier;
+        get_symbol();
+        get_expected_symbol(SYM_ASTERISK);
+        struct_type = search_global_symbol_table(var_identifier, class);
+      } else
+        class = VARIABLE;
+
       entry = create_symbol_table_entry(LOCAL_TABLE, identifier,
         line_number, VARIABLE, type, 0, offset);
+
+      // just for compiler warnings to be quiet
+      struct_type = entry;
+
+      if(type == STRUCT_T)
+        set_struct(entry, struct_type);
 
       get_symbol();
     } else {
@@ -4770,6 +4828,10 @@ uint64_t compile_type() {
 
       get_symbol();
     }
+  } else if (symbol == SYM_STRUCT) {
+    type = STRUCT_T;
+
+    get_symbol();
   } else
     syntax_error_expected_symbol(SYM_UINT64);
 
@@ -6012,6 +6074,48 @@ void compile_for() {
   number_of_for = number_of_for + 1;
 }
 
+void compile_struct_member(uint64_t offset) {
+  uint64_t  type;
+  uint64_t* entry;
+
+  type = compile_type();
+
+  if(type == STRUCT_T){
+    entry = search_global_symbol_table(identifier, STRUCT);
+    get_symbol();
+
+    if(entry == (uint64_t*) 0){
+      syntax_error_undeclared_identifier(identifier);
+      type = UNDECLARED_T;
+    }
+    get_expected_symbol(SYM_ASTERISK);
+  }
+  if (symbol == SYM_IDENTIFIER) {
+    create_symbol_table_entry(GLOBAL_TABLE, identifier, line_number, STRUCT_MEMBER, type, 0, offset);
+
+    get_symbol();
+    get_expected_symbol(SYM_SEMICOLON);
+  } else
+    syntax_error_expected_symbol(SYM_IDENTIFIER);
+
+
+}
+
+void compile_struct(char* structure) {
+  uint64_t offset;
+
+  // todo save size of struct into value entry in symbol table
+  create_symbol_table_entry(GLOBAL_TABLE, structure,
+                                    line_number, STRUCT, STRUCT_T, 0, 0);
+  get_symbol();
+
+  for (offset = 0; is_type_or_struct(); offset = offset + 1) {
+    compile_struct_member(offset);
+  }
+  get_expected_symbol(SYM_RBRACE);
+  get_expected_symbol(SYM_SEMICOLON);
+}
+
 
 char* bootstrap_non_0_boot_level_procedures(char* procedure) {
   // define non-0-boot-level procedures without prefix in name
@@ -6220,7 +6324,7 @@ void compile_procedure(char* procedure, uint64_t type) {
 
     number_of_local_variable_bytes = 0;
 
-    while (is_type()) {
+    while (is_type_or_struct()) {
       // try parsing next local variable declaration
       number_of_local_variable_bytes = number_of_local_variable_bytes + WORDSIZE;
 

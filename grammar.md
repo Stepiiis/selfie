@@ -37,11 +37,11 @@ letter = "a" | ... | "z" | "A" | ... | "Z" .
 C\* Grammar:
 
 ```
-cstar      = { variable [ initialize ] ";" | procedure } .
+cstar      = { struct | variable [ initialize ] ";" | procedure } .
 
 variable   = type identifier .
 
-type       = "uint64_t" [ "*" ] .
+type       = ( "uint64_t" [ "*" ] ) | ( "struct" identifier ).
 
 initialize = "=" [ cast ] [ "-" ] value .
 
@@ -88,6 +88,10 @@ while      = "while" "(" expression ")"
 
 for        = "for" "(" statement ";" expression ";" statement ")" 
                ( statement | "{" { statement } "}" ) .
+               
+struct     = "struct" identifier "{" { struct_member } "}" ";" .
+
+struct_member = variable ";" .
 
 procedure  = ( type | "void" ) identifier "(" [ variable { "," variable } [ "," "..." ] ] ")"
              ( ";" | "{" { variable ";" } { statement } "}" ) .
